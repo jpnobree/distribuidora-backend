@@ -53,7 +53,6 @@ usuário, senha):
 ```properties
 spring.datasource.url=jdbc:postgresql://localhost:5432/distribuidora
 spring.datasource.username=postgres
-spring.datasource.password=postgres
 ```
 
 Na primeira execução, o Hibernate cria/atualiza as tabelas automaticamente
