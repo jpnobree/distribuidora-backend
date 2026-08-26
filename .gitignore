@@ -4,6 +4,9 @@ target/
 ### Banco de dados local (H2) ###
 data/
 
+### Imagens enviadas pelo admin ###
+uploads/
+
 ### IntelliJ IDEA ###
 out/
 !**/src/main/**/out/

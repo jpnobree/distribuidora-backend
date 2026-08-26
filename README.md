@@ -102,6 +102,8 @@ Na primeira execução, o Hibernate cria/atualiza as tabelas automaticamente
 | PUT    | `/api/products/{slug}`     | **ADMIN**                 | Atualiza produto (todos os campos) |
 | PATCH  | `/api/products/{slug}/price` | **ADMIN**                | Atalho: só troca o preço |
 | DELETE | `/api/products/{slug}`     | **ADMIN**                 | Remove produto |
+| POST   | `/api/uploads`              | **ADMIN**                 | Envia uma imagem, retorna a URL para usar no campo `image` |
+| GET    | `/uploads/{arquivo}`        | Público                   | Serve a imagem enviada |
 | POST   | `/api/contacts`             | Logado (ADMIN ou USER)    | Envia mensagem para o vendedor |
 | GET    | `/api/contacts/mine`        | Logado (ADMIN ou USER)    | Lista as próprias mensagens |
 | GET    | `/api/contacts`             | **ADMIN**                 | Lista todas as mensagens recebidas |
@@ -131,6 +133,21 @@ Authorization: Bearer <token do admin>
   "available": true
 }
 ```
+
+### Exemplo: enviar a imagem de um produto (ADMIN)
+
+```
+POST /api/uploads
+Authorization: Bearer <token do admin>
+Content-Type: multipart/form-data
+
+file: <arquivo da imagem>
+```
+
+Resposta: `{ "url": "http://localhost:8080/uploads/<nome-gerado>.jpg" }` — use essa
+URL no campo `image` do produto (`POST`/`PUT /api/products`). Os arquivos ficam
+salvos em `./uploads` (fora do controle de versão) e são servidos publicamente
+em `/uploads/{arquivo}`.
 
 ### Exemplo: cliente entra em contato com o vendedor
 

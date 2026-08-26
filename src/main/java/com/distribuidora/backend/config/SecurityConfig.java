@@ -65,11 +65,16 @@ public class SecurityConfig {
                         .requestMatchers("/h2-console/**").permitAll()
                         // catalogo (produtos e categorias) e publico para visualizacao
                         .requestMatchers(HttpMethod.GET, "/api/products/**", "/api/categories/**").permitAll()
+                        // imagens de produto enviadas pelo admin sao publicas (qualquer
+                        // visitante precisa ver a foto no catalogo)
+                        .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                         // alterar produtos/precos e so para ADMIN
                         .requestMatchers(HttpMethod.POST, "/api/products/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/products/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/products/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasRole("ADMIN")
+                        // enviar (upload) uma imagem e so para ADMIN
+                        .requestMatchers(HttpMethod.POST, "/api/uploads/**").hasRole("ADMIN")
                         // um usuario logado pode ver as proprias mensagens enviadas
                         .requestMatchers(HttpMethod.GET, "/api/contacts/mine").authenticated()
                         // ver todas as mensagens recebidas e so para ADMIN (vendedor)
