@@ -7,9 +7,37 @@ usuário:
 - **USER** — visualiza o catálogo e envia mensagens de contato para o
   vendedor (equivalente ao botão "Solicitar orçamento" do front-end).
 
-Este backend é independente do projeto `distribuidora-vitrine` (front-end
-React). A ideia é, mais adiante, o front-end passar a buscar os produtos
-aqui via `fetch`/`axios` em vez do arquivo estático `src/data/products.js`.
+Este backend é independente do projeto `distribuidora-frontend` (front-end
+React), que já consome esta API via `fetch` para catálogo, login e gestão
+de produtos.
+
+## Arquitetura
+
+```mermaid
+flowchart LR
+    subgraph Cliente["Navegador"]
+        FE["React + Vite\n(distribuidora-frontend)"]
+    end
+
+    subgraph API["distribuidora-backend — Spring Boot"]
+        SEC["SecurityConfig\n+ JwtAuthFilter"]
+        CTRL["Controllers\nAuth · Product · Category · Contact · Upload"]
+        SVC["Services\nregra de negócio"]
+        REPO["Repositories\nSpring Data JPA"]
+    end
+
+    DB[("PostgreSQL")]
+    FILES[("./uploads\nimagens de produto")]
+
+    FE -- "REST + JWT" --> SEC
+    SEC --> CTRL --> SVC --> REPO --> DB
+    CTRL -- "multipart" --> FILES
+    FILES -- "estático /uploads/**" --> FE
+```
+
+Camadas clássicas do Spring Boot (`controller → service → repository`), com
+DTOs isolando a API das entidades JPA — não é Clean Architecture formal, mas
+uma arquitetura em camadas correta para o tamanho atual do projeto.
 
 ## Pré-requisitos
 
@@ -69,6 +97,29 @@ Na primeira execução, o Hibernate cria/atualiza as tabelas automaticamente
 
   **Troque essas senhas** (em `application.properties`, chaves
   `app.seed.*`) antes de usar isso fora da sua máquina.
+
+## Testes
+
+Testes unitários (JUnit 5 + Mockito) na camada de service, e testes de
+integração da camada web com `MockMvc` — estes últimos sobem o contexto de
+segurança de verdade (`SecurityConfig`), então provam que as regras de
+acesso funcionam, não só o service isolado.
+
+```bash
+mvnw.cmd test    # Windows
+./mvnw test      # Linux/Mac/Git Bash
+```
+
+| Classe | O que é coberto |
+|---|---|
+| `ProductServiceTest` | busca por slug — sucesso e "não encontrado" |
+| `AuthServiceTest` | cadastro (sucesso e username duplicado), login (sucesso e credenciais inválidas) |
+| `ContactServiceTest` | criar mensagem, usuário inexistente, listar só as próprias mensagens |
+| `ProductControllerTest` | catálogo público, `403` sem papel ADMIN, `201` criando como ADMIN, `400` em validação |
+
+Ainda faltam: testes de integração com Testcontainers (Postgres real) e
+cobertura dos demais controllers/services — ver o roadmap de qualidade do
+projeto.
 
 ## Autenticação
 
