@@ -6,6 +6,12 @@ import com.distribuidora.backend.exception.ConflictException;
 import com.distribuidora.backend.exception.ResourceNotFoundException;
 import com.distribuidora.backend.model.Product;
 import com.distribuidora.backend.repository.ProductRepository;
+import com.distribuidora.backend.repository.ProductSpecifications;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,14 +20,27 @@ import java.util.List;
 @Service
 public class ProductService {
 
+    private static final String CACHE_NAME = "products";
+
     private final ProductRepository productRepository;
 
     public ProductService(ProductRepository productRepository) {
         this.productRepository = productRepository;
     }
 
-    public List<Product> findAll() {
-        return productRepository.findAll();
+    // Cacheado porque e o endpoint publico mais acessado (toda visita ao
+    // catalogo bate aqui). Invalidado inteiro em qualquer escrita - ver
+    // @CacheEvict abaixo. Chave inclui category/search/pageable automaticamente.
+    @Cacheable(cacheNames = CACHE_NAME)
+    public Page<Product> findAll(String category, String search, Pageable pageable) {
+        Specification<Product> spec = Specification.where(null);
+        if (category != null && !category.isBlank()) {
+            spec = spec.and(ProductSpecifications.hasCategory(category));
+        }
+        if (search != null && !search.isBlank()) {
+            spec = spec.and(ProductSpecifications.matchesSearch(search));
+        }
+        return productRepository.findAll(spec, pageable);
     }
 
     public Product findBySlug(String slug) {
@@ -30,6 +49,7 @@ public class ProductService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
     public Product create(ProductRequest request) {
         if (productRepository.existsBySlug(request.getSlug())) {
             throw new ConflictException("Ja existe um produto com o id: " + request.getSlug());
@@ -40,6 +60,7 @@ public class ProductService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
     public Product update(String slug, ProductRequest request) {
         Product product = findBySlug(slug);
         applyRequest(product, request);
@@ -47,6 +68,7 @@ public class ProductService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
     public Product updatePrice(String slug, PriceUpdateRequest request) {
         Product product = findBySlug(slug);
         product.setPrice(request.getPrice());
@@ -54,6 +76,7 @@ public class ProductService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
     public void delete(String slug) {
         Product product = findBySlug(slug);
         productRepository.delete(product);

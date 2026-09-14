@@ -1,6 +1,8 @@
 package com.distribuidora.backend.config;
 
 import com.distribuidora.backend.security.JwtAuthFilter;
+import com.distribuidora.backend.security.LoginRateLimitFilter;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -27,10 +29,15 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final LoginRateLimitFilter loginRateLimitFilter;
     private final UserDetailsService userDetailsService;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter, UserDetailsService userDetailsService) {
+    public SecurityConfig(
+            JwtAuthFilter jwtAuthFilter,
+            LoginRateLimitFilter loginRateLimitFilter,
+            UserDetailsService userDetailsService) {
         this.jwtAuthFilter = jwtAuthFilter;
+        this.loginRateLimitFilter = loginRateLimitFilter;
         this.userDetailsService = userDetailsService;
     }
 
@@ -63,6 +70,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         // console do H2, so para desenvolvimento
                         .requestMatchers("/h2-console/**").permitAll()
+                        // documentacao da API (Swagger/OpenAPI) e publica
+                        .requestMatchers(
+                                "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**")
+                        .permitAll()
                         // catalogo (produtos e categorias) e publico para visualizacao
                         .requestMatchers(HttpMethod.GET, "/api/products/**", "/api/categories/**").permitAll()
                         // imagens de produto enviadas pelo admin sao publicas (qualquer
@@ -84,9 +95,30 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin())) // necessario p/ h2-console
                 .authenticationProvider(authenticationProvider())
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(loginRateLimitFilter, JwtAuthFilter.class);
 
         return http.build();
+    }
+
+    // JwtAuthFilter e LoginRateLimitFilter ja sao adicionados explicitamente
+    // na cadeia do Spring Security acima (addFilterBefore). Sem isto, o
+    // Spring Boot tambem os registraria automaticamente como filtros de
+    // servlet genericos (por serem beans Filter), fazendo cada um rodar
+    // duas vezes por requisicao - inofensivo pro JWT (idempotente), mas
+    // faria o rate limit do login consumir 2 tentativas por request real.
+    @Bean
+    public FilterRegistrationBean<JwtAuthFilter> jwtAuthFilterRegistration(JwtAuthFilter filter) {
+        FilterRegistrationBean<JwtAuthFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    @Bean
+    public FilterRegistrationBean<LoginRateLimitFilter> loginRateLimitFilterRegistration(LoginRateLimitFilter filter) {
+        FilterRegistrationBean<LoginRateLimitFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean

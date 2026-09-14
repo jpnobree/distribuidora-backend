@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -20,6 +21,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -65,12 +67,14 @@ class ProductControllerTest {
 
     @Test
     void listarProdutos_devePermitirAcessoPublico_semAutenticacao() throws Exception {
-        when(productService.findAll()).thenReturn(List.of(picanha()));
+        when(productService.findAll(isNull(), isNull(), any()))
+                .thenReturn(new PageImpl<>(List.of(picanha())));
 
         mockMvc.perform(get("/api/products"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value("picanha-premium-98562"))
-                .andExpect(jsonPath("$[0].name").value("Picanha Premium"));
+                .andExpect(jsonPath("$.content[0].id").value("picanha-premium-98562"))
+                .andExpect(jsonPath("$.content[0].name").value("Picanha Premium"))
+                .andExpect(jsonPath("$.totalElements").value(1));
     }
 
     @Test
