@@ -83,13 +83,15 @@ DB_USERNAME=postgres
 DB_PASSWORD=postgres
 ```
 
-Na primeira execução, o **Flyway** cria as tabelas automaticamente (ver
-[`src/main/resources/db/migration`](src/main/resources/db/migration)) e o
-`DataSeeder` popula:
+Na primeira execução, o **Flyway** cria as tabelas e popula os dados
+automaticamente (ver
+[`src/main/resources/db/migration`](src/main/resources/db/migration)):
 
-- Categorias e alguns produtos de exemplo (iguais aos que já existiam no
-  front-end).
-- Dois usuários padrão:
+- `V1__init_schema.sql` cria o schema.
+- `V2__seed_produtos_atacado.sql` cadastra os 86 produtos reais recebidos do
+  fornecedor (carnes, hortifruti, frango, embutidos e peixes), com o código
+  do fornecedor como SKU.
+- O `DataSeeder` cria, além disso, as categorias e dois usuários padrão:
 
   | usuário   | senha      | papel |
   |-----------|------------|-------|
