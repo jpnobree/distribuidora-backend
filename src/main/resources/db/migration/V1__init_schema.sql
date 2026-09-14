@@ -1,22 +1,10 @@
 -- ============================================================================
--- Schema do banco de dados - Distribuidora
+-- V1: schema inicial - usuarios, categorias, produtos (+ tags), mensagens
 -- ============================================================================
--- Cria as tabelas usadas pelo backend ate o momento: usuarios (login/papel),
--- categorias, produtos (+ tags) e mensagens de contato com o vendedor.
---
--- Escrito para PostgreSQL. Se for rodar em MySQL ou H2, troque
--- "BIGSERIAL" por "BIGINT AUTO_INCREMENT" e "DOUBLE PRECISION" por "DOUBLE"
--- nas 4 tabelas abaixo.
---
--- Isto e so a estrutura (DDL) - nenhum dado e inserido aqui. Os produtos de
--- exemplo e os usuarios padrao (admin/cliente) continuam sendo criados
--- automaticamente pelo DataSeeder na primeira execucao da aplicacao (quando
--- o backend estiver configurado para usar este banco).
+-- Esta migration e a fonte de verdade do schema (Flyway a aplica sozinho no
+-- startup). Substitui o antigo sql/schema.sql, que era rodado manualmente.
 -- ============================================================================
 
--- ------------------------------------------------------------------
--- usuarios: login e papel (ADMIN ou USER)
--- ------------------------------------------------------------------
 CREATE TABLE users (
     id       BIGSERIAL PRIMARY KEY,
     username VARCHAR(255) NOT NULL,
@@ -27,9 +15,6 @@ CREATE TABLE users (
     CONSTRAINT ck_users_role CHECK (role IN ('ADMIN', 'USER'))
 );
 
--- ------------------------------------------------------------------
--- categorias do catalogo
--- ------------------------------------------------------------------
 CREATE TABLE categories (
     id   BIGSERIAL PRIMARY KEY,
     slug VARCHAR(255) NOT NULL,
@@ -38,9 +23,6 @@ CREATE TABLE categories (
     CONSTRAINT uq_categories_slug UNIQUE (slug)
 );
 
--- ------------------------------------------------------------------
--- produtos do catalogo
--- ------------------------------------------------------------------
 CREATE TABLE products (
     id          BIGSERIAL PRIMARY KEY,
     slug        VARCHAR(255)  NOT NULL,
@@ -56,6 +38,8 @@ CREATE TABLE products (
     CONSTRAINT uq_products_slug UNIQUE (slug)
 );
 
+CREATE INDEX idx_products_category ON products (category);
+
 -- tags livres de cada produto (ex: "Premium", "Resfriado")
 CREATE TABLE product_tags (
     product_id BIGINT       NOT NULL,
@@ -63,9 +47,6 @@ CREATE TABLE product_tags (
     CONSTRAINT fk_product_tags_product FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
 );
 
--- ------------------------------------------------------------------
--- mensagens de contato ("falar com um vendedor")
--- ------------------------------------------------------------------
 CREATE TABLE contact_messages (
     id           BIGSERIAL PRIMARY KEY,
     requester_id BIGINT        NOT NULL,
@@ -76,3 +57,5 @@ CREATE TABLE contact_messages (
     answered     BOOLEAN       NOT NULL DEFAULT FALSE,
     CONSTRAINT fk_contact_messages_requester FOREIGN KEY (requester_id) REFERENCES users (id)
 );
+
+CREATE INDEX idx_contact_messages_requester ON contact_messages (requester_id);
