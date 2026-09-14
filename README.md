@@ -1,5 +1,7 @@
 # Backend — Distribuidora (Java / Spring Boot)
 
+![CI](https://github.com/jpnobree/distribuidora-backend/actions/workflows/ci.yml/badge.svg)
+
 API REST em **Java 17 + Spring Boot 3** com login (JWT) e dois papéis de
 usuário:
 
@@ -41,50 +43,49 @@ uma arquitetura em camadas correta para o tamanho atual do projeto.
 
 ## Pré-requisitos
 
-- **JDK 17 ou superior** instalado (o projeto já foi testado com as
-  versões 22 e 23 que aparecem em `C:\Users\<voce>\.jdks`, caso tenham
-  sido instaladas pelo IntelliJ).
-- Não é necessário instalar o Maven: o projeto inclui o **Maven Wrapper**
-  (`mvnw` / `mvnw.cmd`), que baixa o Maven automaticamente na primeira
-  execução (precisa de internet nessa primeira vez).
-- **PostgreSQL** rodando localmente (ou acessível pela rede), com um banco
-  chamado `distribuidora` já criado. As tabelas ficam em
-  [`sql/schema.sql`](sql/schema.sql) — rode esse script uma vez no seu
-  Postgres antes de subir a aplicação (o Hibernate também tenta criar/
-  atualizar as tabelas sozinho graças a `ddl-auto=update`, mas rodar o
-  script manualmente deixa isso explícito).
+- **Docker** (recomendado — sobe backend + Postgres com um comando, sem
+  precisar instalar Java nem Postgres na máquina), **ou**
+- **JDK 17 ou superior** + **PostgreSQL** rodando localmente, se preferir
+  rodar sem Docker.
 
 ## Como rodar
 
-No Windows (PowerShell ou cmd), dentro da pasta do projeto:
+### Opção 1 — Docker (recomendado)
 
 ```bash
-mvnw.cmd spring-boot:run
+docker compose up --build
 ```
 
-Linux/Mac (ou Git Bash no Windows):
+Sobe o backend **e** um Postgres já configurado, aplica as migrations do
+Flyway automaticamente e popula os dados de exemplo. A API fica em
+`http://localhost:8080`. Para parar e limpar os dados: `docker compose down -v`.
+
+### Opção 2 — Java local
+
+Não é necessário instalar o Maven: o projeto inclui o **Maven Wrapper**
+(`mvnw` / `mvnw.cmd`), que baixa o Maven automaticamente na primeira
+execução (precisa de internet nessa primeira vez).
 
 ```bash
-./mvnw spring-boot:run
+mvnw.cmd spring-boot:run    # Windows
+./mvnw spring-boot:run      # Linux/Mac/Git Bash
 ```
 
-Ou, se preferir, abra a pasta no **IntelliJ IDEA** (o projeto já tem um
-`pom.xml` na raiz — o IntelliJ detecta e importa como projeto Maven
-automaticamente) e rode a classe `BackendApplication`.
+Ou abra a pasta no **IntelliJ IDEA** (detecta o `pom.xml` e importa como
+projeto Maven automaticamente) e rode a classe `BackendApplication`.
 
-A API sobe em `http://localhost:8080`.
+Você precisa ter um PostgreSQL rodando e ajustar a conexão via variáveis de
+ambiente (ou editando os valores padrão em `application.properties`):
 
-Antes de rodar pela primeira vez, ajuste a conexão com o Postgres em
-`src/main/resources/application.properties` (host, porta, nome do banco,
-usuário, senha):
-
-```properties
-spring.datasource.url=jdbc:postgresql://localhost:5432/distribuidora
-spring.datasource.username=postgres
+```bash
+DB_URL=jdbc:postgresql://localhost:5432/distribuidora
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
 ```
 
-Na primeira execução, o Hibernate cria/atualiza as tabelas automaticamente
-(mesmo esquema de [`sql/schema.sql`](sql/schema.sql)) e o `DataSeeder` popula:
+Na primeira execução, o **Flyway** cria as tabelas automaticamente (ver
+[`src/main/resources/db/migration`](src/main/resources/db/migration)) e o
+`DataSeeder` popula:
 
 - Categorias e alguns produtos de exemplo (iguais aos que já existiam no
   front-end).
@@ -95,8 +96,15 @@ Na primeira execução, o Hibernate cria/atualiza as tabelas automaticamente
   | `admin`   | `admin123` | ADMIN |
   | `cliente` | `cliente123` | USER  |
 
-  **Troque essas senhas** (em `application.properties`, chaves
-  `app.seed.*`) antes de usar isso fora da sua máquina.
+  **Troque essas senhas** (variáveis `ADMIN_SEED_PASSWORD`/`DEMO_SEED_PASSWORD`,
+  ou as chaves `app.seed.*` em `application.properties`) antes de usar isso
+  fora da sua máquina.
+
+## Documentação da API (Swagger)
+
+Com o backend rodando: **http://localhost:8080/swagger-ui.html** — lista
+todos os endpoints, com "Try it out" para testar direto do navegador
+(cole o token JWT em Authorize).
 
 ## Testes
 
@@ -116,10 +124,15 @@ mvnw.cmd test    # Windows
 | `AuthServiceTest` | cadastro (sucesso e username duplicado), login (sucesso e credenciais inválidas) |
 | `ContactServiceTest` | criar mensagem, usuário inexistente, listar só as próprias mensagens |
 | `ProductControllerTest` | catálogo público, `403` sem papel ADMIN, `201` criando como ADMIN, `400` em validação |
+| `LoginRateLimitFilterTest` | confirma que o rate limit do login conta certo (não em dobro) e bloqueia com `429` após o limite |
 
-Ainda faltam: testes de integração com Testcontainers (Postgres real) e
-cobertura dos demais controllers/services — ver o roadmap de qualidade do
-projeto.
+Além disso, o `docker-compose.yml` foi testado de ponta a ponta contra um
+Postgres real (migration do Flyway, login, paginação, filtro por categoria
+e por busca, Swagger) — não é um teste automatizado, mas foi validado
+manualmente antes de cada entrega.
+
+Ainda faltam: testes de integração com Testcontainers (Postgres real dentro
+da suíte de testes) e cobertura dos demais controllers/services.
 
 ## Autenticação
 
@@ -145,9 +158,9 @@ projeto.
 | Método | Rota                       | Quem pode acessar        | Descrição |
 |--------|----------------------------|---------------------------|-----------|
 | POST   | `/api/auth/register`       | Público                   | Cria conta USER |
-| POST   | `/api/auth/login`          | Público                   | Login, retorna JWT |
+| POST   | `/api/auth/login`          | Público                   | Login, retorna JWT. Limitado a 5 tentativas/minuto por IP (`429` acima disso) |
 | GET    | `/api/categories`          | Público                   | Lista categorias |
-| GET    | `/api/products`            | Público                   | Lista o catálogo |
+| GET    | `/api/products`            | Público                   | Catálogo paginado — aceita `?page=`, `?size=` (padrão 100), `?category=` e `?search=` |
 | GET    | `/api/products/{slug}`     | Público                   | Detalhe de um produto |
 | POST   | `/api/products`            | **ADMIN**                 | Cria produto |
 | PUT    | `/api/products/{slug}`     | **ADMIN**                 | Atualiza produto (todos os campos) |
@@ -164,6 +177,26 @@ para manter o mesmo espírito de vitrine aberta que o front-end já tem hoje.
 Se preferir exigir login também para visualizar, basta remover essas duas
 linhas de `.permitAll()` em
 [`SecurityConfig.java`](src/main/java/com/distribuidora/backend/config/SecurityConfig.java).
+
+### Exemplo: listar o catálogo (paginado, com filtro)
+
+```
+GET /api/products?category=carnes-aves&search=picanha&page=0&size=20
+```
+
+```json
+{
+  "content": [ { "id": "picanha-premium-98562", "name": "Picanha Premium", "...": "..." } ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1
+}
+```
+
+Essa resposta é cacheada (Caffeine, 10 min) e invalidada automaticamente
+sempre que um produto é criado/editado/removido — o cliente nunca vê dado
+desatualizado, mas não bate no banco a cada visita ao catálogo.
 
 ### Exemplo: criar um produto (ADMIN)
 
@@ -217,33 +250,50 @@ Authorization: Bearer <token de qualquer usuario logado>
 
 ```
 src/main/java/com/distribuidora/backend/
-  config/       SecurityConfig (regras de acesso), DataSeeder (dados iniciais)
-  controller/   Endpoints REST (Auth, Product, Category, Contact)
-  dto/          Objetos de entrada/saída da API
+  config/       SecurityConfig, WebConfig, DataSeeder (dados iniciais)
+  controller/   Endpoints REST (Auth, Product, Category, Contact, Upload)
+  dto/          Objetos de entrada/saída da API (inclui PageResponse)
   exception/    Tratamento de erros (404, 409, validação)
   model/        Entidades JPA (User, Product, Category, ContactMessage)
-  repository/   Acesso a dados (Spring Data JPA)
-  security/     JWT (geração/validação) e integração com Spring Security
-  service/      Regras de negócio
+  repository/   Acesso a dados (Spring Data JPA + Specifications)
+  security/     JWT, LoginRateLimitFilter, integração com Spring Security
+  service/      Regras de negócio (cache no catálogo)
+src/main/resources/
+  db/migration/       Migrations do Flyway (fonte de verdade do schema)
+  application.properties       Config padrão (com fallback para dev local)
+  application-prod.properties  Overrides sem fallback (exige env vars)
+Dockerfile, docker-compose.yml, .github/workflows/ci.yml
 ```
 
 ## Configuração
 
-Tudo fica em `src/main/resources/application.properties`:
+A maior parte fica em `src/main/resources/application.properties`, com
+segredos lidos de variáveis de ambiente (`${VAR:valor-padrao-para-dev}`):
 
-- `app.jwt.secret` / `app.jwt.expiration-minutes` — segredo e validade do
-  token. **Troque o segredo antes de ir para produção.**
-- `spring.datasource.*` — aponta para PostgreSQL (driver `org.postgresql`,
-  já incluído no `pom.xml`). Ajuste host/porta/banco/usuário/senha para o
-  seu ambiente.
+| Variável | Para quê | Obrigatória em prod |
+|---|---|---|
+| `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | Conexão com o Postgres | Sim |
+| `JWT_SECRET` | Assinatura do token JWT | Sim |
+| `ADMIN_SEED_USERNAME` / `ADMIN_SEED_PASSWORD` | Credenciais do admin criado no primeiro start | Sim |
+| `DEMO_SEED_USERNAME` / `DEMO_SEED_PASSWORD` | Credenciais do usuário de demonstração | Sim |
+
+Ative o perfil de produção com `--spring.profiles.active=prod` (ou
+`SPRING_PROFILES_ACTIVE=prod`): sem os valores padrão de desenvolvimento,
+a aplicação falha ao subir se alguma dessas variáveis não for definida —
+de propósito, para nunca ir ao ar com o segredo/senha de exemplo.
+
+Outros pontos de configuração:
+- `spring.cache.caffeine.spec` — tamanho/expiração do cache do catálogo.
+- `app.rate-limit.login.*` — tentativas de login permitidas por minuto/IP.
 - CORS: hoje libera `http://localhost:5173` (endereço padrão do front-end
   Vite). Ajuste em `SecurityConfig.corsConfigurationSource()` quando for
   publicar o front-end em um domínio real.
 
 ## Próximos passos sugeridos
 
-- Ligar o front-end (`distribuidora-vitrine`) a esta API no lugar do
-  `src/data/products.js` estático.
+- Deploy real (Render/Railway + banco gerenciado) usando a imagem Docker
+  já pronta.
+- Testes de integração com Testcontainers.
 - Se precisar de mais granularidade de permissões no futuro (ex: um papel
   "vendedor" separado de "admin"), o enum `Role` em
   `model/Role.java` é o ponto de partida.
