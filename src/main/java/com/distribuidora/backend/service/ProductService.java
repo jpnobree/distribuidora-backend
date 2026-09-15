@@ -7,6 +7,7 @@ import com.distribuidora.backend.exception.ResourceNotFoundException;
 import com.distribuidora.backend.model.Product;
 import com.distribuidora.backend.repository.ProductRepository;
 import com.distribuidora.backend.repository.ProductSpecifications;
+import org.hibernate.Hibernate;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -31,6 +32,14 @@ public class ProductService {
     // Cacheado porque e o endpoint publico mais acessado (toda visita ao
     // catalogo bate aqui). Invalidado inteiro em qualquer escrita - ver
     // @CacheEvict abaixo. Chave inclui category/search/pageable automaticamente.
+    //
+    // @Transactional + Hibernate.initialize: como o resultado fica em cache
+    // (Caffeine), as entidades podem ser devolvidas em uma request diferente
+    // daquela que fez a consulta, com a sessao do Hibernate original ja
+    // fechada. Sem inicializar "tags" aqui dentro da transacao, o Jackson
+    // tenta fazer o lazy-load fora de sessao ao serializar (na requisicao
+    // que pegou o cache) e da LazyInitializationException.
+    @Transactional(readOnly = true)
     @Cacheable(cacheNames = CACHE_NAME)
     public Page<Product> findAll(String category, String search, Pageable pageable) {
         Specification<Product> spec = Specification.where(null);
@@ -40,7 +49,9 @@ public class ProductService {
         if (search != null && !search.isBlank()) {
             spec = spec.and(ProductSpecifications.matchesSearch(search));
         }
-        return productRepository.findAll(spec, pageable);
+        Page<Product> page = productRepository.findAll(spec, pageable);
+        page.getContent().forEach(product -> Hibernate.initialize(product.getTags()));
+        return page;
     }
 
     public Product findBySlug(String slug) {

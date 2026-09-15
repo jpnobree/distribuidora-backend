@@ -66,6 +66,11 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // pagina de erro padrao do Spring Boot: precisa ser publica, senao
+                        // qualquer erro 5xx num request anonimo vira 403 (o dispatch interno
+                        // para /error e barrado pelo anyRequest().authenticated() abaixo),
+                        // mascarando o erro real.
+                        .requestMatchers("/error").permitAll()
                         // login/cadastro sao publicos
                         .requestMatchers("/api/auth/**").permitAll()
                         // console do H2, so para desenvolvimento
