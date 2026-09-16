@@ -3,6 +3,7 @@ package com.distribuidora.backend.config;
 import com.distribuidora.backend.security.JwtAuthFilter;
 import com.distribuidora.backend.security.LoginRateLimitFilter;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -31,14 +32,17 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final LoginRateLimitFilter loginRateLimitFilter;
     private final UserDetailsService userDetailsService;
+    private final List<String> corsAllowedOrigins;
 
     public SecurityConfig(
             JwtAuthFilter jwtAuthFilter,
             LoginRateLimitFilter loginRateLimitFilter,
-            UserDetailsService userDetailsService) {
+            UserDetailsService userDetailsService,
+            @Value("${app.cors.allowed-origins}") List<String> corsAllowedOrigins) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.loginRateLimitFilter = loginRateLimitFilter;
         this.userDetailsService = userDetailsService;
+        this.corsAllowedOrigins = corsAllowedOrigins;
     }
 
     @Bean
@@ -124,8 +128,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Libera o front-end local (Vite). Ajuste/adicione o dominio real quando publicar.
-        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://127.0.0.1:5173"));
+        // Origens permitidas configuraveis via app.cors.allowed-origins /
+        // CORS_ALLOWED_ORIGINS (ver application.properties).
+        configuration.setAllowedOrigins(corsAllowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
