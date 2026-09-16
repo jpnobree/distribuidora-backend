@@ -70,6 +70,11 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // pagina de erro padrao do Spring Boot: precisa ser publica, senao
+                        // qualquer erro 5xx num request anonimo vira 403 (o dispatch interno
+                        // para /error e barrado pelo anyRequest().authenticated() abaixo),
+                        // mascarando o erro real.
+                        .requestMatchers("/error").permitAll()
                         // login/cadastro sao publicos
                         .requestMatchers("/api/auth/**").permitAll()
                         // console do H2, so para desenvolvimento
@@ -128,9 +133,17 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+<<<<<<< HEAD
         // Origens permitidas configuraveis via app.cors.allowed-origins /
         // CORS_ALLOWED_ORIGINS (ver application.properties).
         configuration.setAllowedOrigins(corsAllowedOrigins);
+=======
+        // Libera o front-end local (Vite) e o front-end publicado na Vercel.
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+                "https://distribuidora-frontend-zeta.vercel.app"));
+>>>>>>> 6e743e45de8e4a4dc63b5658e4830f3ca4445e1b
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
