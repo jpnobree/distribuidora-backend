@@ -12,6 +12,11 @@ import com.distribuidora.backend.estoque.StockReservationService;
 import com.distribuidora.backend.estoque.Warehouse;
 import com.distribuidora.backend.estoque.WarehouseRepository;
 import com.distribuidora.backend.exception.ResourceNotFoundException;
+import com.distribuidora.backend.expedicao.PickingList;
+import com.distribuidora.backend.expedicao.PickingListRepository;
+import com.distribuidora.backend.faturamento.Invoice;
+import com.distribuidora.backend.faturamento.InvoiceRepository;
+import com.distribuidora.backend.financeiro.ReceivableRepository;
 import com.distribuidora.backend.model.Product;
 import com.distribuidora.backend.model.User;
 import com.distribuidora.backend.repository.ProductRepository;
@@ -49,6 +54,9 @@ public class SalesQueryService {
     private final LotRepository lotRepository;
     private final WarehouseRepository warehouseRepository;
     private final StockReservationService reservationService;
+    private final ReceivableRepository receivableRepository;
+    private final PickingListRepository pickingRepository;
+    private final InvoiceRepository invoiceRepository;
     private final PricingService pricingService;
     private final CurrentUser currentUser;
 
@@ -57,7 +65,9 @@ public class SalesQueryService {
                              PriceTableRepository priceTableRepository, ProductRepository productRepository,
                              UserRepository userRepository, LotRepository lotRepository,
                              WarehouseRepository warehouseRepository, StockReservationService reservationService,
-                             PricingService pricingService, CurrentUser currentUser) {
+                             ReceivableRepository receivableRepository, PickingListRepository pickingRepository,
+                             InvoiceRepository invoiceRepository, PricingService pricingService,
+                             CurrentUser currentUser) {
         this.orderRepository = orderRepository;
         this.orderService = orderService;
         this.customerRepository = customerRepository;
@@ -68,6 +78,9 @@ public class SalesQueryService {
         this.lotRepository = lotRepository;
         this.warehouseRepository = warehouseRepository;
         this.reservationService = reservationService;
+        this.receivableRepository = receivableRepository;
+        this.pickingRepository = pickingRepository;
+        this.invoiceRepository = invoiceRepository;
         this.pricingService = pricingService;
         this.currentUser = currentUser;
     }
@@ -167,7 +180,12 @@ public class SalesQueryService {
                 order.getTotal(), seesCost ? order.getEstimatedCost() : null, margin, order.isHasEstimatedWeight(),
                 order.getCreatedBy(), order.getCreatedAt(), order.getApprovedBy(), order.getApprovedAt(),
                 order.getCancelledBy(), order.getCancelledAt(), order.getCancelReason(), items, blocks,
-                orderService.canApprove(order), orderService.canCancel(order), order.getVersion());
+                orderService.canApprove(order), orderService.canCancel(order),
+                pickingRepository.findByOrderIdAndStatusNot(order.getId(), PickingList.Status.CANCELADA)
+                        .map(PickingList::getId).orElse(null),
+                invoiceRepository.findByOrderIdAndStatus(order.getId(), Invoice.Status.EMITIDA)
+                        .map(Invoice::getId).orElse(null),
+                order.getVersion());
     }
 
     // Preco, conversoes e disponibilidade de um produto para um cliente: o
@@ -190,10 +208,12 @@ public class SalesQueryService {
     @Transactional(readOnly = true)
     public CreditView credit(Long customerId) {
         Customer customer = orderService.visibleCustomer(customerId);
-        BigDecimal open = orderRepository.openTotalForCustomer(customerId);
+        BigDecimal openOrders = orderRepository.openTotalForCustomer(customerId);
+        BigDecimal openTitles = receivableRepository.openTotalForCustomer(customerId);
+        BigDecimal exposure = openOrders.add(openTitles);
         boolean cash = orderService.isCashTerm(customer.getPaymentTermId());
-        return new CreditView(customer.getId(), customer.getStatus().name(), customer.getCreditLimit(), open,
-                customer.getCreditLimit().subtract(open), cash,
+        return new CreditView(customer.getId(), customer.getStatus().name(), customer.getCreditLimit(), openOrders,
+                openTitles, customer.getCreditLimit().subtract(exposure), cash,
                 customer.getPaymentTermId() == null ? null
                         : paymentTermRepository.findById(customer.getPaymentTermId()).map(PaymentTerm::getName).orElse(null),
                 customer.getPriceTableId() == null ? null

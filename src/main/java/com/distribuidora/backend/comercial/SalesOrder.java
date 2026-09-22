@@ -12,7 +12,30 @@ import java.util.List;
 @Table(name = "sales_orders")
 public class SalesOrder {
 
-    public enum Status { AGUARDANDO_APROVACAO, APROVADO, CANCELADO }
+    // O pedido acompanha o ciclo ate o dinheiro: aprovado reserva o estoque,
+    // separado tem peso real conferido, faturado ja virou nota e titulo.
+    public enum Status {
+        AGUARDANDO_APROVACAO("Aguardando aprovação"),
+        APROVADO("Aprovado"),
+        EM_SEPARACAO("Em separação"),
+        SEPARADO("Separado"),
+        FATURADO("Faturado"),
+        CANCELADO("Cancelado");
+
+        private final String label;
+
+        Status(String label) {
+            this.label = label;
+        }
+
+        public String getLabel() {
+            return label;
+        }
+
+        public boolean isOpen() {
+            return this != FATURADO && this != CANCELADO;
+        }
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -112,6 +135,12 @@ public class SalesOrder {
         approvedBy = username;
         approvedAt = Instant.now();
         updatedAt = approvedAt;
+    }
+
+    // Transicoes conduzidas pela expedicao e pelo faturamento.
+    public void moveTo(Status next) {
+        status = next;
+        updatedAt = Instant.now();
     }
 
     void cancel(String username, String reason) {

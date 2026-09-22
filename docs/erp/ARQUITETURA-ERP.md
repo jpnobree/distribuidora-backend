@@ -17,7 +17,8 @@ melhor? Se não, não entra no roadmap.
 | 1. Cadastros | **Concluída** na branch `erp/fase-1` | V4: produtos (unidades e conversões, custo, estoque mín/máx, validade, fornecedores), clientes (carteira do vendedor, crédito), fornecedores, tabelas auxiliares. Front: telas de cadastro com consulta de CNPJ (BrasilAPI) e CEP (ViaCEP) |
 | 2. Estoque | **Concluída** na branch `erp/fase-2` | V5: depósitos, lotes, saldos por situação (disponível, bloqueado, avariado), movimentos somente-inclusão, perdas com motivo e valor, transferências, FEFO, inventário com depósito congelado e contagem cega. Front: posição com indicadores, validade, movimentações, inventários |
 | 3. Comercial | **Concluída** na branch `erp/fase-3` | V6: tabelas de preço, parâmetro de desconto máximo, pedidos com bloqueios (desconto, abaixo do custo, crédito, cliente bloqueado) e aprovação por alçada, reserva FEFO por lote, leads. Front: pedidos, novo pedido, preços, prospecção com mapa (OpenStreetMap) |
-| 4. Expedição + faturamento + CR | Próxima | — |
+| 4. Expedição + faturamento + CR | **Concluída** na branch `erp/fase-4` | V7: separação gerada da reserva, peso real na balança, troca de lote, conferência por segunda pessoa (opcional), divergências, faturamento com porta fiscal, baixa física por lote, títulos a receber por parcela, baixas e estornos somente-inclusão. Front: expedição, faturamento e contas a receber |
+| 5. Compras + CP | Próxima | — |
 
 Decisões tomadas na fase 0 que ajustam o plano abaixo:
 
@@ -33,6 +34,11 @@ Decisões tomadas na fase 0 que ajustam o plano abaixo:
 - **Estoque:** toda alteração de saldo passa por `StockService.apply` (saldo travado com `FOR UPDATE` + movimento na mesma transação). Vencido não conta como disponível, não é transferido nem liberado — só baixado como perda. Peso variável entra pelo peso real, nunca pela caixa aproximada. Custo informado na entrada recalcula o custo médio ponderado (exige `produtos.custo.alterar`).
 - **"Hoje" no fuso da empresa** (`app.timezone`, padrão America/Fortaleza): o servidor roda em UTC.
 - **Pedidos:** preço = tabela do cliente, senão preço de cadastro; preço, custo e desconto gravados no item. Sem estoque disponível o pedido nem é criado (sem venda sob encomenda). Bloqueios que quem lança já pode aprovar são liberados na hora e registrados. Reserva não é movimento físico: só `qty_reserved` + `stock_reservations`. Exposição de crédito = pedidos não cancelados (títulos em aberto entram na fase 4); venda à vista não consome limite.
+- **Expedição:** a separação nasce da reserva feita na aprovação (uma linha por lote sugerido pelo FEFO), já preenchida com o sugerido. O separador informa o peso real e pode trocar de lote; ao confirmar, a reserva é refeita exatamente sobre o que foi separado. Lote vencido não é expedido. Peso variável aceita diferença até `expedicao.tolerancia_peso_percent` (10% de fábrica) sem divergência; além disso, e qualquer falta, viram divergência registrada com autor. Peso fixo **não** aceita sobra. A conferência confirma linha a linha: divergindo, a separação é reaberta e a divergência da conferência fica no histórico mesmo depois de refeita. `expedicao.conferente_diferente` (desligado de fábrica, para operação com poucas pessoas) exige que o conferente não seja quem separou.
+- **Faturamento:** só separação conferida fatura, pelo **peso conferido**, com o preço travado no pedido. A baixa física acontece aqui (reservado → saída, lote a lote, `source_type = Invoice`), junto com o CMV pelo custo médio do momento. `FiscalDocumentProvider` é a porta fiscal: a implementação atual numera um **documento interno sem valor fiscal** e diz isso na própria nota — NF-e real depende de emissor e certificado. Cancelar a nota devolve a mercadoria aos mesmos lotes, reserva de novo para o pedido e cancela os títulos; título com recebimento bloqueia o cancelamento até o estorno.
+- **Contas a receber:** os títulos nascem do faturamento pelas parcelas da condição de pagamento (a diferença de arredondamento vai para a última). Baixas e estornos ficam em `financial_transactions`, somente-inclusão como os movimentos de estoque. Juros/multa e desconto entram no recebimento sem alterar o valor do título.
+- **Crédito depois da fase 4:** exposição = pedidos ainda não faturados **+** títulos em aberto. O pedido sai da primeira parcela quando vira nota, então nada conta duas vezes.
+- **Cancelamento de pedido** só vale até a aprovação; na expedição cancela-se a separação, e depois do faturamento cancela-se a nota.
 - **Leads do mapa** vêm do OpenStreetMap (Overpass, gratuito, com espelhos em sequência); `external_id` impede importar o mesmo lugar duas vezes.
 - **Compatibilidade com a vitrine:** o login continua devolvendo `role: "ADMIN" | "USER"`; `ADMIN` = usuário com perfil Administrador. Clientes cadastrados pela vitrine recebem o perfil `CLIENTE`, que não entra no ERP.
 
@@ -174,7 +180,7 @@ Agrupadas por módulo. `(E)` = já existe e será evoluída.
 
 **Comercial:** `price_tables`, `price_table_items`, `customer_prices`, `promotions`, `discount_policies`, `volume_discount_tiers`, `sales_orders`, `sales_order_items`, `approval_requests`.
 
-**Expedição / Faturamento:** `picking_lists`, `picking_items`, `picking_divergences`, `invoices`, `invoice_items`, `fiscal_documents`.
+**Expedição / Faturamento:** `picking_lists`, `picking_items`, `picking_divergences`, `invoices`, `invoice_items`. *(Implementado assim: o retorno do emissor fiscal — situação, número, chave e mensagem — ficou em colunas de `invoices` em vez de uma tabela `fiscal_documents` vazia. Ela volta quando houver emissão real com histórico de tentativas.)*
 
 **Compras:** `purchase_requests`, `quotations`, `quotation_items`, `purchase_orders`, `purchase_order_items`, `goods_receipts`, `goods_receipt_items`, `supplier_price_history`.
 

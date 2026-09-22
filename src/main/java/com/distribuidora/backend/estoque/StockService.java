@@ -21,6 +21,7 @@ import com.distribuidora.backend.repository.ProductRepository;
 import com.distribuidora.backend.security.CurrentUser;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -204,6 +205,41 @@ public class StockService {
         return List.of(out, in);
     }
 
+    // ------------------------------------------------------------------ venda
+
+    // Baixa fisica do faturamento: o que estava reservado para o pedido deixa
+    // de estar reservado e sai do deposito. Sempre na transacao da nota
+    // (MANDATORY): nota, saida e titulos ficam juntos ou nada acontece.
+    @Transactional(propagation = Propagation.MANDATORY)
+    public StockMovement shipSale(Long warehouseId, Product product, Long lotId, BigDecimal shipped,
+                                  BigDecimal reserved, Long invoiceId, String document) {
+        ensureNoOpenInventory(warehouseId);
+        StockBalance balance = lock(warehouseId, product.getId(), lotId)
+                .orElseThrow(() -> new BusinessRuleException("Sem saldo de " + product.getName()
+                        + " no deposito para faturar."));
+        balance.release(reserved);
+        balance.move(StockEnums.Bucket.DISPONIVEL, StockEnums.Bucket.EXTERNO, shipped);
+        balanceRepository.save(balance);
+        return movementRepository.save(new StockMovement(MovementType.SAIDA_VENDA, warehouseId, product.getId(), lotId,
+                shipped, product.getAverageCost(), null, null, document, currentUser.id(), currentUser.username(),
+                "Invoice", invoiceId, null));
+    }
+
+    // Cancelamento de nota: a mercadoria volta para o deposito. Nada e apagado;
+    // a saida continua no historico com o estorno ao lado.
+    @Transactional(propagation = Propagation.MANDATORY)
+    public StockMovement returnSale(Long warehouseId, Product product, Long lotId, BigDecimal quantity,
+                                    Long invoiceId, String document, String reason) {
+        ensureNoOpenInventory(warehouseId);
+        StockBalance balance = lock(warehouseId, product.getId(), lotId)
+                .orElseGet(() -> new StockBalance(warehouseId, product.getId(), lotId));
+        balance.move(StockEnums.Bucket.EXTERNO, StockEnums.Bucket.DISPONIVEL, quantity);
+        balanceRepository.save(balance);
+        return movementRepository.save(new StockMovement(MovementType.ESTORNO_VENDA, warehouseId, product.getId(),
+                lotId, quantity, product.getAverageCost(), null, reason, document, currentUser.id(),
+                currentUser.username(), "Invoice", invoiceId, null));
+    }
+
     // ------------------------------------------------------------------ FEFO
 
     // Sugestao de lotes para separar: vence primeiro, sai primeiro. Ignora
@@ -254,9 +290,7 @@ public class StockService {
             throw new BusinessRuleException("A quantidade precisa ser maior que zero.");
         }
         Long lotId = lot == null ? null : lot.getId();
-        StockBalance balance = (lotId == null
-                ? balanceRepository.lockWithoutLot(warehouseId, product.getId())
-                : balanceRepository.lockWithLot(warehouseId, product.getId(), lotId))
+        StockBalance balance = lock(warehouseId, product.getId(), lotId)
                 .orElseGet(() -> {
                     if (type.from() != StockEnums.Bucket.EXTERNO) {
                         throw new BusinessRuleException("Nao ha saldo deste produto"
@@ -270,6 +304,12 @@ public class StockService {
         return movementRepository.save(new StockMovement(type, warehouseId, product.getId(), lotId, quantity,
                 unitCost, lossReason, blank(reason), blank(document), currentUser.id(), currentUser.username(),
                 sourceType, sourceId, groupId));
+    }
+
+    private java.util.Optional<StockBalance> lock(Long warehouseId, Long productId, Long lotId) {
+        return lotId == null
+                ? balanceRepository.lockWithoutLot(warehouseId, productId)
+                : balanceRepository.lockWithLot(warehouseId, productId, lotId);
     }
 
     BigDecimal toBase(Product product, Qty qty) {
