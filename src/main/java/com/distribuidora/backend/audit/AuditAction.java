@@ -21,7 +21,8 @@ public enum AuditAction {
     CLIENTE_CREDITO_ALTERADO("Crédito do cliente alterado"),
     FORNECEDOR_CRIADO("Fornecedor cadastrado"),
     FORNECEDOR_ALTERADO("Fornecedor alterado"),
-    CADASTRO_AUXILIAR_ALTERADO("Tabela auxiliar alterada");
+    CADASTRO_AUXILIAR_ALTERADO("Tabela auxiliar alterada"),
+    ESTOQUE_INVENTARIO_FECHADO("Inventário fechado");
 
     private final String label;
 
