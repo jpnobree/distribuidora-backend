@@ -14,7 +14,8 @@ melhor? Se não, não entra no roadmap.
 | Fase | Situação | Onde |
 |---|---|---|
 | 0. Fundação | **Concluída** na branch `erp/fase-0` | Backend: migration V3, RBAC, auditoria. Front: repositório `distribuidora-erp` (login, usuários, perfis, auditoria) |
-| 1. Cadastros | Próxima | — |
+| 1. Cadastros | **Concluída** na branch `erp/fase-1` | V4: produtos (unidades e conversões, custo, estoque mín/máx, validade, fornecedores), clientes (carteira do vendedor, crédito), fornecedores, tabelas auxiliares. Front: telas de cadastro com consulta de CNPJ (BrasilAPI) e CEP (ViaCEP) |
+| 2. Estoque | Próxima | — |
 
 Decisões tomadas na fase 0 que ajustam o plano abaixo:
 
@@ -23,6 +24,10 @@ Decisões tomadas na fase 0 que ajustam o plano abaixo:
 - **Filiais e depósitos entram na fase 2**, junto com o primeiro dado transacional (estoque), em vez de tabelas vazias na fase 0.
 - **401 × 403:** requisição sem token ou com token vencido responde 401; logado sem permissão responde 403. O ERP usa isso para voltar ao login.
 - **Pendente de segurança:** o token ainda fica em `localStorage` com validade de 2 h. Refresh token rotativo em cookie `httpOnly` (seção 19) fica para antes de o ERP ir para produção.
+- **Conversões de caixa derivadas do nome** na V4 ("CX 12 KG", "CX +- 20 KG" = peso variável): 63 dos 86 produtos saíram com conversão e 29 com peso variável, sem digitação.
+- **Excluir produto pela vitrine agora desativa** (some do catálogo, mantém histórico). Nenhum cadastro é apagado.
+- **Custo visível só com `produtos.custo.ver`** e alterável só com `produtos.custo.alterar`; margem calculada sobre o preço de venda com o custo médio.
+- **Carteira:** sem `clientes.ver_todos`, o vendedor vê e cadastra só os próprios clientes (cliente de outra carteira responde 404). Limite de crédito e bloqueio exigem `clientes.credito.alterar` e são auditados separadamente.
 - **Compatibilidade com a vitrine:** o login continua devolvendo `role: "ADMIN" | "USER"`; `ADMIN` = usuário com perfil Administrador. Clientes cadastrados pela vitrine recebem o perfil `CLIENTE`, que não entra no ERP.
 
 ---

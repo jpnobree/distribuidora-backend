@@ -49,7 +49,8 @@ public class ProductService {
     @Transactional(readOnly = true)
     @Cacheable(cacheNames = CACHE_NAME)
     public Page<Product> findAll(String category, String search, Pageable pageable) {
-        Specification<Product> spec = Specification.where(null);
+        // Produto inativo no ERP nao aparece no catalogo publico.
+        Specification<Product> spec = Specification.where(ProductSpecifications.isActive());
         if (category != null && !category.isBlank()) {
             spec = spec.and(ProductSpecifications.hasCategory(category));
         }
@@ -73,6 +74,7 @@ public class ProductService {
             throw new ConflictException("Ja existe um produto com o id: " + request.getSlug());
         }
         Product product = new Product();
+        product.setBaseUnit(Product.baseUnitFromLabel(request.getUnit()));
         applyRequest(product, request);
         Product saved = productRepository.save(product);
         auditService.recordChange(AuditAction.PRODUTO_CRIADO, ENTITY, saved.getSlug(), null, snapshot(saved), null);
@@ -104,10 +106,12 @@ public class ProductService {
 
     @Transactional
     @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
+    // Cadastro nunca e apagado: o produto some da vitrine e das vendas, mas o
+    // historico (estoque, pedidos, auditoria) continua apontando para ele.
     public void delete(String slug) {
         Product product = findBySlug(slug);
-        auditService.recordChange(AuditAction.PRODUTO_EXCLUIDO, ENTITY, product.getSlug(), snapshot(product), null, null);
-        productRepository.delete(product);
+        product.setActive(false);
+        auditService.record(AuditAction.PRODUTO_DESATIVADO, ENTITY, product.getSlug(), null);
     }
 
     private static Map<String, Object> snapshot(Product product) {
