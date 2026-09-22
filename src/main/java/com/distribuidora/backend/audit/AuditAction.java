@@ -22,7 +22,13 @@ public enum AuditAction {
     FORNECEDOR_CRIADO("Fornecedor cadastrado"),
     FORNECEDOR_ALTERADO("Fornecedor alterado"),
     CADASTRO_AUXILIAR_ALTERADO("Tabela auxiliar alterada"),
-    ESTOQUE_INVENTARIO_FECHADO("Inventário fechado");
+    ESTOQUE_INVENTARIO_FECHADO("Inventário fechado"),
+    PEDIDO_CRIADO("Pedido lançado"),
+    PEDIDO_APROVADO("Pedido aprovado"),
+    PEDIDO_CANCELADO("Pedido cancelado"),
+    TABELA_PRECO_ALTERADA("Tabela de preço alterada"),
+    PARAMETRO_ALTERADO("Parâmetro alterado"),
+    LEAD_CONVERTIDO("Lead convertido em cliente");
 
     private final String label;
 

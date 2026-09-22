@@ -28,6 +28,9 @@ public class Customer extends Party {
     @Column(name = "seller_id")
     private Long sellerId;
 
+    @Column(name = "price_table_id")
+    private Long priceTableId;
+
     @Column(name = "payment_term_id")
     private Long paymentTermId;
 
@@ -76,6 +79,14 @@ public class Customer extends Party {
 
     public void setSellerId(Long sellerId) {
         this.sellerId = sellerId;
+    }
+
+    public Long getPriceTableId() {
+        return priceTableId;
+    }
+
+    public void setPriceTableId(Long priceTableId) {
+        this.priceTableId = priceTableId;
     }
 
     public Long getPaymentTermId() {
