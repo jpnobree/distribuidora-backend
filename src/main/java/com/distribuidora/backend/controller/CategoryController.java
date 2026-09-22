@@ -20,6 +20,10 @@ public class CategoryController {
 
     @GetMapping
     public List<CategoryResponse> findAll() {
-        return categoryRepository.findAll().stream().map(CategoryResponse::from).toList();
+        // So as categorias principais: subcategorias sao do ERP.
+        return categoryRepository.findAll().stream()
+                .filter(category -> category.getParentId() == null)
+                .map(CategoryResponse::from)
+                .toList();
     }
 }
