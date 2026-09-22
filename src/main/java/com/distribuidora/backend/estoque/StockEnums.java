@@ -13,6 +13,8 @@ public final class StockEnums {
         IMPLANTACAO("Implantação de saldo", Bucket.EXTERNO, Bucket.DISPONIVEL),
         ENTRADA_MANUAL("Entrada manual", Bucket.EXTERNO, Bucket.DISPONIVEL),
         SAIDA_MANUAL("Saída manual", Bucket.DISPONIVEL, Bucket.EXTERNO),
+        SAIDA_VENDA("Saída por venda", Bucket.DISPONIVEL, Bucket.EXTERNO),
+        ESTORNO_VENDA("Estorno de venda", Bucket.EXTERNO, Bucket.DISPONIVEL),
         TRANSFERENCIA_SAIDA("Transferência (saída)", Bucket.DISPONIVEL, Bucket.EXTERNO),
         TRANSFERENCIA_ENTRADA("Transferência (entrada)", Bucket.EXTERNO, Bucket.DISPONIVEL),
         AJUSTE_INVENTARIO_ENTRADA("Ajuste de inventário (sobra)", Bucket.EXTERNO, Bucket.DISPONIVEL),

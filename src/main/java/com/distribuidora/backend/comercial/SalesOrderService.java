@@ -13,6 +13,7 @@ import com.distribuidora.backend.comercial.SalesDtos.OrderItemRequest;
 import com.distribuidora.backend.comercial.SalesDtos.OrderRequest;
 import com.distribuidora.backend.comercial.SalesOrder.Block;
 import com.distribuidora.backend.estoque.StockReservationService;
+import com.distribuidora.backend.financeiro.ReceivableRepository;
 import com.distribuidora.backend.exception.BusinessRuleException;
 import com.distribuidora.backend.exception.ResourceNotFoundException;
 import com.distribuidora.backend.model.Product;
@@ -48,14 +49,15 @@ public class SalesOrderService {
     private final UnitRepository unitRepository;
     private final PricingService pricingService;
     private final StockReservationService reservationService;
+    private final ReceivableRepository receivableRepository;
     private final CurrentUser currentUser;
     private final AuditService auditService;
 
     public SalesOrderService(SalesOrderRepository orderRepository, CustomerRepository customerRepository,
                              PaymentTermRepository paymentTermRepository, ProductRepository productRepository,
                              UnitRepository unitRepository, PricingService pricingService,
-                             StockReservationService reservationService, CurrentUser currentUser,
-                             AuditService auditService) {
+                             StockReservationService reservationService, ReceivableRepository receivableRepository,
+                             CurrentUser currentUser, AuditService auditService) {
         this.orderRepository = orderRepository;
         this.customerRepository = customerRepository;
         this.paymentTermRepository = paymentTermRepository;
@@ -63,6 +65,7 @@ public class SalesOrderService {
         this.unitRepository = unitRepository;
         this.pricingService = pricingService;
         this.reservationService = reservationService;
+        this.receivableRepository = receivableRepository;
         this.currentUser = currentUser;
         this.auditService = auditService;
     }
@@ -166,8 +169,9 @@ public class SalesOrderService {
                 resolved.source());
     }
 
-    // Exposicao = pedidos em aberto do cliente + este pedido. Titulos a receber
-    // em aberto entram aqui quando o faturamento existir (fase 4).
+    // Exposicao = pedidos ainda nao faturados + titulos a receber em aberto +
+    // este pedido. O pedido sai da primeira parcela e entra na segunda quando
+    // vira nota, entao nada e contado duas vezes.
     private void checkCredit(Customer customer, SalesOrder order) {
         if (customer.getStatus() == Customer.Status.BLOQUEADO) {
             order.addBlock(Block.Type.CLIENTE_BLOQUEADO, "Cliente com cadastro bloqueado pelo financeiro");
@@ -175,11 +179,16 @@ public class SalesOrderService {
         if (isCashTerm(customer.getPaymentTermId())) {
             return;
         }
-        BigDecimal exposure = orderRepository.openTotalForCustomer(customer.getId()).add(order.getTotal());
+        BigDecimal exposure = exposureOf(customer.getId()).add(order.getTotal());
         if (exposure.compareTo(customer.getCreditLimit()) > 0) {
             order.addBlock(Block.Type.LIMITE_CREDITO, "Exposicao " + money(exposure) + " com este pedido; limite "
                     + money(customer.getCreditLimit()));
         }
+    }
+
+    public BigDecimal exposureOf(Long customerId) {
+        return orderRepository.openTotalForCustomer(customerId)
+                .add(receivableRepository.openTotalForCustomer(customerId));
     }
 
     boolean isCashTerm(Long paymentTermId) {
@@ -232,6 +241,13 @@ public class SalesOrderService {
         if (order.getStatus() == SalesOrder.Status.CANCELADO) {
             throw new BusinessRuleException("Pedido ja cancelado.");
         }
+        // a mercadoria ja saiu ou ja esta na doca: desfazer e pelo outro lado
+        if (order.getStatus() == SalesOrder.Status.FATURADO) {
+            throw new BusinessRuleException("Pedido faturado. Cancele o faturamento antes.");
+        }
+        if (order.getStatus() == SalesOrder.Status.EM_SEPARACAO || order.getStatus() == SalesOrder.Status.SEPARADO) {
+            throw new BusinessRuleException("O pedido esta na expedicao. Cancele a separacao antes.");
+        }
         if (!canCancel(order)) {
             throw new AccessDeniedException("Voce nao tem permissao para cancelar este pedido.");
         }
@@ -245,7 +261,8 @@ public class SalesOrderService {
     // Quem lancou pode desistir enquanto o pedido nao foi aprovado; depois
     // disso so quem tem "pedidos.cancelar".
     public boolean canCancel(SalesOrder order) {
-        if (order.getStatus() == SalesOrder.Status.CANCELADO) {
+        if (order.getStatus() != SalesOrder.Status.AGUARDANDO_APROVACAO
+                && order.getStatus() != SalesOrder.Status.APROVADO) {
             return false;
         }
         return currentUser.can(CANCELAR) || (order.getStatus() == SalesOrder.Status.AGUARDANDO_APROVACAO

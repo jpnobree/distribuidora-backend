@@ -57,6 +57,25 @@ public class StockReservationService {
                 allocation.lotId(), allocation.quantity()));
     }
 
+    // Reserva um lote escolhido a mao, nao o sugerido pelo FEFO: e o que a
+    // separacao faz quando o separador pega outro lote (ou outro peso).
+    @Transactional(propagation = Propagation.MANDATORY)
+    public StockReservation reserveExact(Long orderItemId, Long productId, Long warehouseId, Long lotId,
+                                         BigDecimal quantity, String describe) {
+        StockBalance balance = (lotId == null
+                ? balanceRepository.lockWithoutLot(warehouseId, productId)
+                : balanceRepository.lockWithLot(warehouseId, productId, lotId))
+                .orElseThrow(() -> new BusinessRuleException("Nao ha saldo de " + describe + " neste deposito."));
+        if (balance.available().compareTo(quantity) < 0) {
+            throw new BusinessRuleException("Saldo insuficiente de " + describe + ": disponivel "
+                    + balance.available().stripTrailingZeros().toPlainString() + ", separado "
+                    + quantity.stripTrailingZeros().toPlainString() + ".");
+        }
+        balance.reserve(quantity);
+        balanceRepository.save(balance);
+        return reservationRepository.save(new StockReservation(orderItemId, warehouseId, productId, lotId, quantity));
+    }
+
     @Transactional(propagation = Propagation.MANDATORY)
     public void release(Collection<Long> orderItemIds) {
         for (StockReservation reservation : reservationRepository.findByOrderItemIdInAndReleasedAtIsNull(orderItemIds)) {
@@ -69,6 +88,13 @@ public class StockReservationService {
             balanceRepository.save(balance);
             reservation.markReleased();
         }
+    }
+
+    // Faturamento: a reserva virou saida fisica, entao o saldo ja foi baixado
+    // por StockService.shipSale. Aqui so a reserva e encerrada.
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void markConsumed(Collection<Long> orderItemIds) {
+        reservationRepository.findByOrderItemIdInAndReleasedAtIsNull(orderItemIds).forEach(StockReservation::markReleased);
     }
 
     @Transactional(readOnly = true)
