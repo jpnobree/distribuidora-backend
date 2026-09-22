@@ -13,6 +13,10 @@ public class ProductSpecifications {
     private ProductSpecifications() {
     }
 
+    public static Specification<Product> isActive() {
+        return (root, query, cb) -> cb.isTrue(root.get("active"));
+    }
+
     public static Specification<Product> hasCategory(String category) {
         return (root, query, cb) -> cb.equal(root.get("category"), category);
     }
