@@ -69,6 +69,7 @@ public final class PartyDtos {
             Long segmentId,
             Long sellerId,
             Long paymentTermId,
+            Long priceTableId,
             @NotNull @DecimalMin("0.00") @Digits(integer = 12, fraction = 2) BigDecimal creditLimit,
             @NotNull Customer.Status status,
             @DecimalMin("-90") @DecimalMax("90") BigDecimal latitude,
@@ -87,7 +88,7 @@ public final class PartyDtos {
             Long id, String legalName, String tradeName, String displayName, String document, String personType,
             String stateRegistration, String phone, String whatsapp, String email, String contactName,
             AddressDto address, String notes, Long segmentId, String segmentName, Long sellerId, String sellerName,
-            Long paymentTermId, String paymentTermName, BigDecimal creditLimit, Customer.Status status,
+            Long paymentTermId, String paymentTermName, Long priceTableId, BigDecimal creditLimit, Customer.Status status,
             BigDecimal latitude, BigDecimal longitude, Instant createdAt, Instant updatedAt, long version) {
     }
 

@@ -76,6 +76,21 @@ public class StockBalance {
         updatedAt = Instant.now();
     }
 
+    // Reserva nao e movimento fisico: a mercadoria continua no deposito, so
+    // deixa de estar disponivel para outro pedido.
+    public void reserve(BigDecimal quantity) {
+        if (available().compareTo(quantity) < 0) {
+            throw new BusinessRuleException("Saldo disponivel insuficiente para reservar.");
+        }
+        qtyReserved = qtyReserved.add(quantity);
+        updatedAt = Instant.now();
+    }
+
+    public void release(BigDecimal quantity) {
+        qtyReserved = qtyReserved.subtract(quantity).max(BigDecimal.ZERO);
+        updatedAt = Instant.now();
+    }
+
     // delta = quanto a situacao ganha. EXTERNO e o "lado de fora": quando ele
     // ganha, o fisico da empresa perde (e vice-versa). DISPONIVEL e derivado.
     private void adjust(Bucket bucket, BigDecimal delta) {

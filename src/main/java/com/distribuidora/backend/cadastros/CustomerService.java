@@ -30,6 +30,7 @@ public class CustomerService {
 
     static final String VER_TODOS = "clientes.ver_todos";
     static final String CREDITO_ALTERAR = "clientes.credito.alterar";
+    static final String PRECOS_GERENCIAR = "precos.gerenciar";
 
     private final CustomerRepository customerRepository;
     private final PaymentTermRepository paymentTermRepository;
@@ -90,6 +91,7 @@ public class CustomerService {
         if (creditTouched) {
             requireCreditPermission();
         }
+        requirePricePermissionIfChanged(null, request.priceTableId());
 
         Customer customer = new Customer();
         customer.setSellerId(resolveSeller(request.sellerId(), null));
@@ -120,6 +122,7 @@ public class CustomerService {
         if (creditChanged) {
             requireCreditPermission();
         }
+        requirePricePermissionIfChanged(customer.getPriceTableId(), request.priceTableId());
 
         customer.setSellerId(resolveSeller(request.sellerId(), customer.getSellerId()));
         applyCommon(customer, request, document);
@@ -168,6 +171,13 @@ public class CustomerService {
         return seller.getId();
     }
 
+    // A tabela define o preco do cliente: vendedor nao escolhe a propria.
+    private void requirePricePermissionIfChanged(Long current, Long requested) {
+        if (!Objects.equals(current, requested) && !currentUser.can(PRECOS_GERENCIAR)) {
+            throw new AccessDeniedException("Voce nao tem permissao para definir a tabela de preco do cliente.");
+        }
+    }
+
     private void requireCreditPermission() {
         if (!currentUser.can(CREDITO_ALTERAR)) {
             throw new AccessDeniedException("Voce nao tem permissao para alterar limite de credito ou bloquear clientes.");
@@ -185,6 +195,7 @@ public class CustomerService {
         customer.setPersonType(PartySupport.personType(document));
         customer.setSegmentId(request.segmentId());
         customer.setPaymentTermId(request.paymentTermId());
+        customer.setPriceTableId(request.priceTableId());
         customer.setLatitude(request.latitude());
         customer.setLongitude(request.longitude());
     }
@@ -194,6 +205,7 @@ public class CustomerService {
         values.put("segmentId", c.getSegmentId());
         values.put("sellerId", c.getSellerId());
         values.put("paymentTermId", c.getPaymentTermId());
+        values.put("priceTableId", c.getPriceTableId());
         return values;
     }
 
@@ -221,7 +233,7 @@ public class CustomerService {
                 c.getPersonType(), c.getStateRegistration(), c.getPhone(), c.getWhatsapp(), c.getEmail(),
                 c.getContactName(), AddressDto.from(c.getAddress()), c.getNotes(), c.getSegmentId(),
                 n.segments().get(c.getSegmentId()), c.getSellerId(), n.sellers().get(c.getSellerId()),
-                c.getPaymentTermId(), n.terms().get(c.getPaymentTermId()), c.getCreditLimit(), c.getStatus(),
+                c.getPaymentTermId(), n.terms().get(c.getPaymentTermId()), c.getPriceTableId(), c.getCreditLimit(), c.getStatus(),
                 c.getLatitude(), c.getLongitude(), c.getCreatedAt(), c.getUpdatedAt(), c.getVersion());
     }
 }

@@ -16,7 +16,8 @@ melhor? Se não, não entra no roadmap.
 | 0. Fundação | **Concluída** na branch `erp/fase-0` | Backend: migration V3, RBAC, auditoria. Front: repositório `distribuidora-erp` (login, usuários, perfis, auditoria) |
 | 1. Cadastros | **Concluída** na branch `erp/fase-1` | V4: produtos (unidades e conversões, custo, estoque mín/máx, validade, fornecedores), clientes (carteira do vendedor, crédito), fornecedores, tabelas auxiliares. Front: telas de cadastro com consulta de CNPJ (BrasilAPI) e CEP (ViaCEP) |
 | 2. Estoque | **Concluída** na branch `erp/fase-2` | V5: depósitos, lotes, saldos por situação (disponível, bloqueado, avariado), movimentos somente-inclusão, perdas com motivo e valor, transferências, FEFO, inventário com depósito congelado e contagem cega. Front: posição com indicadores, validade, movimentações, inventários |
-| 3. Comercial | Próxima | — |
+| 3. Comercial | **Concluída** na branch `erp/fase-3` | V6: tabelas de preço, parâmetro de desconto máximo, pedidos com bloqueios (desconto, abaixo do custo, crédito, cliente bloqueado) e aprovação por alçada, reserva FEFO por lote, leads. Front: pedidos, novo pedido, preços, prospecção com mapa (OpenStreetMap) |
+| 4. Expedição + faturamento + CR | Próxima | — |
 
 Decisões tomadas na fase 0 que ajustam o plano abaixo:
 
@@ -31,6 +32,8 @@ Decisões tomadas na fase 0 que ajustam o plano abaixo:
 - **Carteira:** sem `clientes.ver_todos`, o vendedor vê e cadastra só os próprios clientes (cliente de outra carteira responde 404). Limite de crédito e bloqueio exigem `clientes.credito.alterar` e são auditados separadamente.
 - **Estoque:** toda alteração de saldo passa por `StockService.apply` (saldo travado com `FOR UPDATE` + movimento na mesma transação). Vencido não conta como disponível, não é transferido nem liberado — só baixado como perda. Peso variável entra pelo peso real, nunca pela caixa aproximada. Custo informado na entrada recalcula o custo médio ponderado (exige `produtos.custo.alterar`).
 - **"Hoje" no fuso da empresa** (`app.timezone`, padrão America/Fortaleza): o servidor roda em UTC.
+- **Pedidos:** preço = tabela do cliente, senão preço de cadastro; preço, custo e desconto gravados no item. Sem estoque disponível o pedido nem é criado (sem venda sob encomenda). Bloqueios que quem lança já pode aprovar são liberados na hora e registrados. Reserva não é movimento físico: só `qty_reserved` + `stock_reservations`. Exposição de crédito = pedidos não cancelados (títulos em aberto entram na fase 4); venda à vista não consome limite.
+- **Leads do mapa** vêm do OpenStreetMap (Overpass, gratuito, com espelhos em sequência); `external_id` impede importar o mesmo lugar duas vezes.
 - **Compatibilidade com a vitrine:** o login continua devolvendo `role: "ADMIN" | "USER"`; `ADMIN` = usuário com perfil Administrador. Clientes cadastrados pela vitrine recebem o perfil `CLIENTE`, que não entra no ERP.
 
 ---
