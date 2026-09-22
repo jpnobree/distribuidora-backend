@@ -49,6 +49,11 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, "Campo de ordenacao invalido: " + ex.getPropertyName());
     }
 
+    @ExceptionHandler(jakarta.validation.ConstraintViolationException.class)
+    public ResponseEntity<Object> handleConstraint(jakarta.validation.ConstraintViolationException ex) {
+        return build(HttpStatus.BAD_REQUEST, "Parametro invalido: " + ex.getMessage());
+    }
+
     @ExceptionHandler(BusinessRuleException.class)
     public ResponseEntity<Object> handleBusinessRule(BusinessRuleException ex) {
         return build(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
