@@ -7,9 +7,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -25,9 +28,14 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
+// Regras por URL para o catalogo legado; modulos do ERP usam @PreAuthorize
+// com a permissao no proprio controller.
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
+
+    private static final String PRODUTOS_EDITAR = "produtos.editar";
 
     private final JwtAuthFilter jwtAuthFilter;
     private final LoginRateLimitFilter loginRateLimitFilter;
@@ -69,6 +77,9 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Sem login (ou token vencido) = 401; logado sem permissao = 403.
+                // O front usa essa diferenca para mandar de volta ao login.
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
                         // pagina de erro padrao do Spring Boot: precisa ser publica, senao
                         // qualquer erro 5xx num request anonimo vira 403 (o dispatch interno
@@ -88,17 +99,16 @@ public class SecurityConfig {
                         // imagens de produto enviadas pelo admin sao publicas (qualquer
                         // visitante precisa ver a foto no catalogo)
                         .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
-                        // alterar produtos/precos e so para ADMIN
-                        .requestMatchers(HttpMethod.POST, "/api/products/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/products/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PATCH, "/api/products/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasRole("ADMIN")
-                        // enviar (upload) uma imagem e so para ADMIN
-                        .requestMatchers(HttpMethod.POST, "/api/uploads/**").hasRole("ADMIN")
+                        // alterar produtos/precos e enviar imagem de produto
+                        .requestMatchers(HttpMethod.POST, "/api/products/**").hasAuthority(PRODUTOS_EDITAR)
+                        .requestMatchers(HttpMethod.PUT, "/api/products/**").hasAuthority(PRODUTOS_EDITAR)
+                        .requestMatchers(HttpMethod.PATCH, "/api/products/**").hasAuthority(PRODUTOS_EDITAR)
+                        .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasAuthority(PRODUTOS_EDITAR)
+                        .requestMatchers(HttpMethod.POST, "/api/uploads/**").hasAuthority(PRODUTOS_EDITAR)
                         // um usuario logado pode ver as proprias mensagens enviadas
                         .requestMatchers(HttpMethod.GET, "/api/contacts/mine").authenticated()
-                        // ver todas as mensagens recebidas e so para ADMIN (vendedor)
-                        .requestMatchers(HttpMethod.GET, "/api/contacts/**").hasRole("ADMIN")
+                        // ver todas as mensagens recebidas
+                        .requestMatchers(HttpMethod.GET, "/api/contacts/**").hasAuthority("contatos.ver")
                         // enviar mensagem de contato exige estar logado (ADMIN ou USER)
                         .requestMatchers(HttpMethod.POST, "/api/contacts/**").authenticated()
                         .anyRequest().authenticated())
