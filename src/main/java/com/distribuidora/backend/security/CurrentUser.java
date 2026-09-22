@@ -15,6 +15,11 @@ public class CurrentUser {
         return auth != null && auth.getPrincipal() instanceof AppUserPrincipal principal ? principal.getId() : null;
     }
 
+    public String username() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getPrincipal() instanceof AppUserPrincipal principal ? principal.getUsername() : null;
+    }
+
     public boolean can(String permission) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null) {
