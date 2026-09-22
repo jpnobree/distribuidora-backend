@@ -60,7 +60,9 @@ public final class SalesDtos {
             BigDecimal estimatedCost, BigDecimal marginPercent,
             boolean hasEstimatedWeight, String createdBy, Instant createdAt, String approvedBy, Instant approvedAt,
             String cancelledBy, Instant cancelledAt, String cancelReason, List<OrderItemView> items,
-            List<BlockView> blocks, boolean canApprove, boolean canCancel, long version) {
+            List<BlockView> blocks, boolean canApprove, boolean canCancel,
+            // para onde o pedido andou: separacao e documento de saida
+            Long pickingId, Long invoiceId, long version) {
     }
 
     public record OrderSummary(
@@ -79,8 +81,9 @@ public final class SalesDtos {
     }
 
     public record CreditView(
-            Long customerId, String status, BigDecimal creditLimit, BigDecimal openOrders, BigDecimal available,
-            boolean cashTerm, String paymentTermName, String priceTableName) {
+            Long customerId, String status, BigDecimal creditLimit, BigDecimal openOrders,
+            BigDecimal openReceivables, BigDecimal available, boolean cashTerm, String paymentTermName,
+            String priceTableName) {
     }
 
     public record PriceTableView(Long id, String name, boolean active, int itemCount) {
