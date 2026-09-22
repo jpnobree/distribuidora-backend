@@ -12,6 +12,7 @@ import com.distribuidora.backend.comercial.SalesDtos.OrderRequest;
 import com.distribuidora.backend.comercial.SalesOrder.Block;
 import com.distribuidora.backend.estoque.StockReservationService;
 import com.distribuidora.backend.exception.BusinessRuleException;
+import com.distribuidora.backend.financeiro.ReceivableRepository;
 import com.distribuidora.backend.model.Product;
 import com.distribuidora.backend.model.ProductUnit;
 import com.distribuidora.backend.repository.ProductRepository;
@@ -50,6 +51,7 @@ class SalesOrderServiceTest {
     @Mock UnitRepository unitRepository;
     @Mock PricingService pricingService;
     @Mock StockReservationService reservationService;
+    @Mock ReceivableRepository receivableRepository;
     @Mock CurrentUser currentUser;
     @Mock AuditService auditService;
 
@@ -60,7 +62,7 @@ class SalesOrderServiceTest {
     @BeforeEach
     void setUp() throws Exception {
         service = new SalesOrderService(orderRepository, customerRepository, paymentTermRepository, productRepository,
-                unitRepository, pricingService, reservationService, currentUser, auditService);
+                unitRepository, pricingService, reservationService, receivableRepository, currentUser, auditService);
 
         var ctor = Unit.class.getDeclaredConstructor();
         ctor.setAccessible(true);
@@ -92,6 +94,7 @@ class SalesOrderServiceTest {
         when(pricingService.maxDiscountPercent()).thenReturn(new BigDecimal("5"));
         when(reservationService.availableForSale(24L)).thenReturn(new BigDecimal("500"));
         when(orderRepository.openTotalForCustomer(1L)).thenReturn(BigDecimal.ZERO);
+        when(receivableRepository.openTotalForCustomer(1L)).thenReturn(BigDecimal.ZERO);
         when(orderRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         // vendedor da carteira, sem alcadas
@@ -179,5 +182,42 @@ class SalesOrderServiceTest {
     void vendedorNaoVendeParaClienteDeOutraCarteira() {
         customer.setSellerId(8L);
         assertThrows(com.distribuidora.backend.exception.ResourceNotFoundException.class, () -> order("1", "KG", null));
+    }
+
+    @Test
+    void pedidoFaturado_soEDesfeitoPeloFaturamento() {
+        SalesOrder order = visible(SalesOrder.Status.FATURADO);
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> service.cancel(9L, "erro"));
+        assertEquals("Pedido faturado. Cancele o faturamento antes.", ex.getMessage());
+        assertTrue(!service.canCancel(order));
+    }
+
+    @Test
+    void pedidoNaExpedicao_pedeCancelarASeparacaoAntes() {
+        visible(SalesOrder.Status.EM_SEPARACAO);
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> service.cancel(9L, "desistiu"));
+        assertEquals("O pedido esta na expedicao. Cancele a separacao antes.", ex.getMessage());
+    }
+
+    @Test
+    void creditoConsideraPedidosEmAbertoETitulosAReceber() {
+        when(orderRepository.openTotalForCustomer(1L)).thenReturn(new BigDecimal("1500"));
+        when(receivableRepository.openTotalForCustomer(1L)).thenReturn(new BigDecimal("3000"));
+
+        // 1500 em pedidos + 3000 em titulos + 1995 deste pedido passa do limite de 5000
+        SalesOrder order = order("50", "KG", null);
+        assertEquals(SalesOrder.Status.AGUARDANDO_APROVACAO, order.getStatus());
+        assertTrue(order.pendingBlocks().stream().anyMatch(b -> b.getType() == Block.Type.LIMITE_CREDITO));
+        assertEquals(new BigDecimal("4500"), service.exposureOf(1L));
+    }
+
+    private SalesOrder visible(SalesOrder.Status status) {
+        SalesOrder order = order("10", "KG", null);
+        ReflectionTestUtils.setField(order, "id", 9L);
+        order.moveTo(status);
+        when(orderRepository.findById(9L)).thenReturn(Optional.of(order));
+        return order;
     }
 }
