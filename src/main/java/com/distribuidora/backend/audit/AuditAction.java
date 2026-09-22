@@ -13,7 +13,15 @@ public enum AuditAction {
     PRODUTO_CRIADO("Produto criado"),
     PRODUTO_ALTERADO("Produto alterado"),
     PRODUTO_PRECO_ALTERADO("Preço de produto alterado"),
-    PRODUTO_EXCLUIDO("Produto excluído");
+    PRODUTO_EXCLUIDO("Produto excluído"),
+    PRODUTO_DESATIVADO("Produto desativado"),
+    PRODUTO_CUSTO_ALTERADO("Custo de produto alterado"),
+    CLIENTE_CRIADO("Cliente cadastrado"),
+    CLIENTE_ALTERADO("Cliente alterado"),
+    CLIENTE_CREDITO_ALTERADO("Crédito do cliente alterado"),
+    FORNECEDOR_CRIADO("Fornecedor cadastrado"),
+    FORNECEDOR_ALTERADO("Fornecedor alterado"),
+    CADASTRO_AUXILIAR_ALTERADO("Tabela auxiliar alterada");
 
     private final String label;
 

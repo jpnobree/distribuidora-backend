@@ -1,6 +1,10 @@
 package com.distribuidora.backend.exception;
 
+import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
@@ -23,6 +27,26 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<Object> handleConflict(ConflictException ex) {
         return build(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    // Negacoes lancadas pelos servicos (ex.: alterar custo sem permissao).
+    // Pedido sem login nunca chega aqui: o filtro de seguranca ja devolve 401.
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Object> handleAccessDenied(AccessDeniedException ex) {
+        String message = ex instanceof AuthorizationDeniedException
+                ? "Voce nao tem permissao para esta acao." : ex.getMessage();
+        return build(HttpStatus.FORBIDDEN, message);
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<Object> handleOptimisticLock(ObjectOptimisticLockingFailureException ex) {
+        return build(HttpStatus.CONFLICT,
+                "Este cadastro foi alterado por outra pessoa enquanto voce editava. Recarregue e tente de novo.");
+    }
+
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ResponseEntity<Object> handleBadSort(PropertyReferenceException ex) {
+        return build(HttpStatus.BAD_REQUEST, "Campo de ordenacao invalido: " + ex.getPropertyName());
     }
 
     @ExceptionHandler(BusinessRuleException.class)
