@@ -45,7 +45,7 @@ class LoginRateLimitFilterTest {
 
     @Test
     void login_devePermitirExatamenteAsTentativasConfiguradas_eBloquearDepois() throws Exception {
-        when(authService.login(any())).thenReturn(new AuthResponse("token", "admin", "ADMIN"));
+        when(authService.login(any())).thenReturn(new AuthResponse("token", "admin", "ADMIN", null, java.util.List.of(), java.util.Set.of()));
 
         String body = objectMapper.writeValueAsString(new Object() {
             public final String username = "admin";

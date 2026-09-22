@@ -1,5 +1,7 @@
 package com.distribuidora.backend.service;
 
+import com.distribuidora.backend.audit.AuditAction;
+import com.distribuidora.backend.audit.AuditService;
 import com.distribuidora.backend.dto.PriceUpdateRequest;
 import com.distribuidora.backend.dto.ProductRequest;
 import com.distribuidora.backend.exception.ConflictException;
@@ -16,17 +18,22 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ProductService {
 
     private static final String CACHE_NAME = "products";
+    private static final String ENTITY = "Product";
 
     private final ProductRepository productRepository;
+    private final AuditService auditService;
 
-    public ProductService(ProductRepository productRepository) {
+    public ProductService(ProductRepository productRepository, AuditService auditService) {
         this.productRepository = productRepository;
+        this.auditService = auditService;
     }
 
     // Cacheado porque e o endpoint publico mais acessado (toda visita ao
@@ -67,30 +74,62 @@ public class ProductService {
         }
         Product product = new Product();
         applyRequest(product, request);
-        return productRepository.save(product);
+        Product saved = productRepository.save(product);
+        auditService.recordChange(AuditAction.PRODUTO_CRIADO, ENTITY, saved.getSlug(), null, snapshot(saved), null);
+        return saved;
     }
 
     @Transactional
     @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
     public Product update(String slug, ProductRequest request) {
         Product product = findBySlug(slug);
+        Map<String, Object> before = snapshot(product);
         applyRequest(product, request);
-        return productRepository.save(product);
+        Product saved = productRepository.save(product);
+        auditService.recordChange(AuditAction.PRODUTO_ALTERADO, ENTITY, saved.getSlug(), before, snapshot(saved), null);
+        return saved;
     }
 
     @Transactional
     @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
     public Product updatePrice(String slug, PriceUpdateRequest request) {
         Product product = findBySlug(slug);
+        Map<String, Object> before = priceSnapshot(product);
         product.setPrice(request.getPrice());
-        return productRepository.save(product);
+        Product saved = productRepository.save(product);
+        auditService.recordChange(AuditAction.PRODUTO_PRECO_ALTERADO, ENTITY, saved.getSlug(),
+                before, priceSnapshot(saved), null);
+        return saved;
     }
 
     @Transactional
     @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
     public void delete(String slug) {
         Product product = findBySlug(slug);
+        auditService.recordChange(AuditAction.PRODUTO_EXCLUIDO, ENTITY, product.getSlug(), snapshot(product), null, null);
         productRepository.delete(product);
+    }
+
+    private static Map<String, Object> snapshot(Product product) {
+        Map<String, Object> values = new LinkedHashMap<>();
+        values.put("sku", product.getSku());
+        values.put("name", product.getName());
+        values.put("category", product.getCategory());
+        values.put("unit", product.getUnit());
+        values.put("price", product.getPrice());
+        values.put("available", product.isAvailable());
+        values.put("tags", List.copyOf(product.getTags()));
+        values.put("image", product.getImage());
+        values.put("description", product.getDescription());
+        values.put("origin", product.getOrigin());
+        return values;
+    }
+
+    // null ("consulte o preco") e um valor valido, por isso nao Map.of.
+    private static Map<String, Object> priceSnapshot(Product product) {
+        Map<String, Object> values = new LinkedHashMap<>();
+        values.put("price", product.getPrice());
+        return values;
     }
 
     private void applyRequest(Product product, ProductRequest request) {

@@ -1,7 +1,10 @@
 package com.distribuidora.backend.dto;
 
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 // Usado para criar ou atualizar um produto (POST/PUT /api/products).
@@ -23,7 +26,9 @@ public class ProductRequest {
     private String unit;
 
     // null = "consulte o preco"
-    private Double price;
+    @DecimalMin(value = "0.00", message = "O preco nao pode ser negativo")
+    @Digits(integer = 12, fraction = 2)
+    private BigDecimal price;
 
     private List<String> tags;
 
@@ -75,11 +80,11 @@ public class ProductRequest {
         this.unit = unit;
     }
 
-    public Double getPrice() {
+    public BigDecimal getPrice() {
         return price;
     }
 
-    public void setPrice(Double price) {
+    public void setPrice(BigDecimal price) {
         this.price = price;
     }
 
