@@ -3,7 +3,6 @@ package com.distribuidora.backend.service;
 import com.distribuidora.backend.dto.ContactRequest;
 import com.distribuidora.backend.exception.ResourceNotFoundException;
 import com.distribuidora.backend.model.ContactMessage;
-import com.distribuidora.backend.model.Role;
 import com.distribuidora.backend.model.User;
 import com.distribuidora.backend.repository.ContactMessageRepository;
 import com.distribuidora.backend.repository.UserRepository;
@@ -36,7 +35,7 @@ class ContactServiceTest {
 
     @Test
     void create_deveSalvarMensagemAtreladaAoUsuario_quandoUsuarioExiste() {
-        User cliente = new User("cliente", "hash", null, Role.USER);
+        User cliente = new User("cliente", "hash", null);
         cliente.setId(42L);
 
         ContactRequest request = new ContactRequest();
@@ -70,7 +69,7 @@ class ContactServiceTest {
 
     @Test
     void findMine_deveListarSomenteMensagensDoUsuarioLogado() {
-        User cliente = new User("cliente", "hash", null, Role.USER);
+        User cliente = new User("cliente", "hash", null);
         cliente.setId(7L);
 
         ContactMessage mensagem = new ContactMessage();

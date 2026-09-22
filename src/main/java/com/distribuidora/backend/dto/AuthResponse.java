@@ -1,26 +1,15 @@
 package com.distribuidora.backend.dto;
 
-public class AuthResponse {
+import java.util.List;
+import java.util.Set;
 
-    private String token;
-    private String username;
-    private String role;
-
-    public AuthResponse(String token, String username, String role) {
-        this.token = token;
-        this.username = username;
-        this.role = role;
-    }
-
-    public String getToken() {
-        return token;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public String getRole() {
-        return role;
-    }
+// "role" (ADMIN/USER) continua existindo para a vitrine; o ERP usa
+// "roles" e "permissions".
+public record AuthResponse(
+        String token,
+        String username,
+        String role,
+        String fullName,
+        List<String> roles,
+        Set<String> permissions) {
 }

@@ -2,16 +2,20 @@
 
 ![CI](https://github.com/jpnobree/distribuidora-backend/actions/workflows/ci.yml/badge.svg)
 
-API REST em **Java 17 + Spring Boot 3** com login (JWT) e dois papéis de
-usuário:
+API REST em **Java 17 + Spring Boot 3** com login (JWT), perfis e
+permissões (RBAC) e auditoria. Atende dois front-ends:
 
-- **ADMIN** — cadastra produtos e altera preços/dados do catálogo.
-- **USER** — visualiza o catálogo e envia mensagens de contato para o
-  vendedor (equivalente ao botão "Solicitar orçamento" do front-end).
+- **Vitrine** (`distribuidora-vitrine`) — catálogo público, login e gestão
+  de produtos.
+- **ERP** (`distribuidora-erp`) — sistema interno de gestão, em construção
+  por fases. Arquitetura e roadmap em
+  [`docs/erp/ARQUITETURA-ERP.md`](docs/erp/ARQUITETURA-ERP.md).
 
-Este backend é independente do projeto `distribuidora-frontend` (front-end
-React), que já consome esta API via `fetch` para catálogo, login e gestão
-de produtos.
+Acesso por **perfil** (Administrador, Diretor/CEO, Gerente, Financeiro,
+Compras, Vendedor, Estoquista, Expedição, Logística e Cliente do site),
+cada um com um conjunto de **permissões** editável pelo ERP. O
+Administrador tem todas. Clientes que se cadastram pela vitrine recebem o
+perfil Cliente, sem acesso ao ERP.
 
 ## Arquitetura
 
@@ -122,10 +126,15 @@ mvnw.cmd test    # Windows
 
 | Classe | O que é coberto |
 |---|---|
-| `ProductServiceTest` | busca por slug — sucesso e "não encontrado" |
-| `AuthServiceTest` | cadastro (sucesso e username duplicado), login (sucesso e credenciais inválidas) |
+| `ProductServiceTest` | busca por slug; mudança de preço auditada com valor anterior e novo |
+| `AuthServiceTest` | cadastro sempre como Cliente, login devolvendo perfis/permissões e o `role` legado, falha de login auditada (senha errada e usuário desativado) |
 | `ContactServiceTest` | criar mensagem, usuário inexistente, listar só as próprias mensagens |
-| `ProductControllerTest` | catálogo público, `403` sem papel ADMIN, `201` criando como ADMIN, `400` em validação |
+| `ProductControllerTest` | catálogo público, `401` sem login, `403` sem a permissão `produtos.editar`, `201` com ela, `400` em validação |
+| `UserAdminControllerTest` | `/api/users` exige `usuarios.gerenciar`; hash da senha nunca sai na API |
+| `UserAdminServiceTest` | ninguém se desativa nem tira o próprio perfil de administrador; sempre resta um administrador ativo |
+| `RoleServiceTest` | Administrador não é editável; perfil do sistema ou com usuários não é excluído |
+| `AccessResolverTest` | Administrador recebe toda permissão existente; perfis somam permissões; Cliente não recebe nenhuma |
+| `AuditServiceTest` | grava só os campos alterados; ignora mudança só de escala decimal (79.9 × 79.90) |
 | `LoginRateLimitFilterTest` | confirma que o rate limit do login conta certo (não em dobro) e bloqueia com `429` após o limite |
 
 Além disso, o `docker-compose.yml` foi testado de ponta a ponta contra um
@@ -142,15 +151,23 @@ da suíte de testes) e cobertura dos demais controllers/services.
    ```json
    { "username": "admin", "password": "admin123" }
    ```
-   Retorna `{ "token": "...", "username": "admin", "role": "ADMIN" }`.
+   Retorna o token, os perfis e as permissões:
+   ```json
+   { "token": "...", "username": "admin", "role": "ADMIN", "fullName": "Administrador",
+     "roles": ["ADMINISTRADOR"], "permissions": ["auditoria.ver", "contatos.ver", "produtos.editar", "usuarios.gerenciar"] }
+   ```
+   `role` (`ADMIN`/`USER`) existe só para a vitrine: `ADMIN` = tem o perfil Administrador.
+
+   Sem token (ou com token vencido) a API responde `401`; logado sem a
+   permissão necessária, `403`.
 
 2. Use o token nas próximas chamadas, no header:
    ```
    Authorization: Bearer <token>
    ```
 
-3. **Cadastro** (sempre cria papel USER — conta ADMIN não é auto-cadastrável
-   por segurança) — `POST /api/auth/register`
+3. **Cadastro** (sempre cria o perfil Cliente; usuários internos são criados
+   pelo ERP, por quem tem `usuarios.gerenciar`) — `POST /api/auth/register`
    ```json
    { "username": "novo_cliente", "password": "senha123", "email": "opcional@exemplo.com" }
    ```
@@ -159,20 +176,30 @@ da suíte de testes) e cobertura dos demais controllers/services.
 
 | Método | Rota                       | Quem pode acessar        | Descrição |
 |--------|----------------------------|---------------------------|-----------|
-| POST   | `/api/auth/register`       | Público                   | Cria conta USER |
+| POST   | `/api/auth/register`       | Público                   | Cria conta com perfil Cliente |
 | POST   | `/api/auth/login`          | Público                   | Login, retorna JWT. Limitado a 5 tentativas/minuto por IP (`429` acima disso) |
+| GET    | `/api/me`                  | Logado                    | Dados, perfis e permissões do usuário logado |
 | GET    | `/api/categories`          | Público                   | Lista categorias |
 | GET    | `/api/products`            | Público                   | Catálogo paginado — aceita `?page=`, `?size=` (padrão 100), `?category=` e `?search=` |
 | GET    | `/api/products/{slug}`     | Público                   | Detalhe de um produto |
-| POST   | `/api/products`            | **ADMIN**                 | Cria produto |
-| PUT    | `/api/products/{slug}`     | **ADMIN**                 | Atualiza produto (todos os campos) |
-| PATCH  | `/api/products/{slug}/price` | **ADMIN**                | Atalho: só troca o preço |
-| DELETE | `/api/products/{slug}`     | **ADMIN**                 | Remove produto |
-| POST   | `/api/uploads`              | **ADMIN**                 | Envia uma imagem, retorna a URL para usar no campo `image` |
+| POST   | `/api/products`            | `produtos.editar`         | Cria produto |
+| PUT    | `/api/products/{slug}`     | `produtos.editar`         | Atualiza produto (todos os campos) |
+| PATCH  | `/api/products/{slug}/price` | `produtos.editar`       | Atalho: só troca o preço |
+| DELETE | `/api/products/{slug}`     | `produtos.editar`         | Remove produto |
+| POST   | `/api/uploads`              | `produtos.editar`        | Envia uma imagem, retorna a URL para usar no campo `image` |
 | GET    | `/uploads/{arquivo}`        | Público                   | Serve a imagem enviada |
-| POST   | `/api/contacts`             | Logado (ADMIN ou USER)    | Envia mensagem para o vendedor |
-| GET    | `/api/contacts/mine`        | Logado (ADMIN ou USER)    | Lista as próprias mensagens |
-| GET    | `/api/contacts`             | **ADMIN**                 | Lista todas as mensagens recebidas |
+| POST   | `/api/contacts`             | Logado                    | Envia mensagem para o vendedor |
+| GET    | `/api/contacts/mine`        | Logado                    | Lista as próprias mensagens |
+| GET    | `/api/contacts`             | `contatos.ver`            | Lista todas as mensagens recebidas |
+| GET/POST/PUT | `/api/users`, `/api/users/{id}` | `usuarios.gerenciar` | Lista (busca, perfil, situação), cria e edita usuários |
+| POST   | `/api/users/{id}/password`  | `usuarios.gerenciar`     | Define nova senha |
+| GET/POST/PUT/DELETE | `/api/roles`, `/api/roles/{code}` | `usuarios.gerenciar` | Perfis e suas permissões |
+| GET    | `/api/permissions`          | `usuarios.gerenciar`     | Permissões existentes |
+| GET    | `/api/audit-logs`           | `auditoria.ver`          | Auditoria paginada — filtros `username`, `action`, `entityType`, `entityId`, `from`, `to` |
+
+Toda alteração de produto, preço, usuário e perfil, e todo login (com
+sucesso ou recusado), fica em `audit_logs`, que o próprio banco impede de
+alterar ou apagar.
 
 O catálogo (`GET /api/products` e `/api/categories`) é público de propósito,
 para manter o mesmo espírito de vitrine aberta que o front-end já tem hoje.
@@ -287,15 +314,13 @@ de propósito, para nunca ir ao ar com o segredo/senha de exemplo.
 Outros pontos de configuração:
 - `spring.cache.caffeine.spec` — tamanho/expiração do cache do catálogo.
 - `app.rate-limit.login.*` — tentativas de login permitidas por minuto/IP.
-- CORS: hoje libera `http://localhost:5173` (endereço padrão do front-end
-  Vite). Ajuste em `SecurityConfig.corsConfigurationSource()` quando for
-  publicar o front-end em um domínio real.
+- `CORS_ALLOWED_ORIGINS` — origens liberadas, separadas por vírgula. O
+  padrão inclui a vitrine (`:5173`) e o ERP (`:5174`) locais e os
+  domínios da Vercel.
 
-## Próximos passos sugeridos
+## Próximos passos
 
-- Deploy real (Render/Railway + banco gerenciado) usando a imagem Docker
-  já pronta.
-- Testes de integração com Testcontainers.
-- Se precisar de mais granularidade de permissões no futuro (ex: um papel
-  "vendedor" separado de "admin"), o enum `Role` em
-  `model/Role.java` é o ponto de partida.
+Seguem o roadmap de
+[`docs/erp/ARQUITETURA-ERP.md`](docs/erp/ARQUITETURA-ERP.md). Além dele:
+testes de integração com Testcontainers (a migration V3 foi validada
+manualmente contra um Postgres com os dados de produção simulados).
