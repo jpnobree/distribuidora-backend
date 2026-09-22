@@ -66,7 +66,7 @@ class CustomerServiceTest {
     private static CustomerRequest request(String document, BigDecimal credit, Customer.Status status, Long version) {
         PartyFields party = new PartyFields("Churrascaria Boi na Brasa Ltda", "Boi na Brasa", document, null,
                 null, null, null, null, new AddressDto("60000-000", null, null, null, null, "Fortaleza", "ce"), null);
-        return new CustomerRequest(party, null, 99L, null, credit, status, null, null, version);
+        return new CustomerRequest(party, null, 99L, null, null, credit, status, null, null, version);
     }
 
     private void loggedAsSeller(long id) {
