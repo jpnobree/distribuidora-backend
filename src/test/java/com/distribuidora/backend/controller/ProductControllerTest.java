@@ -17,6 +17,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -59,7 +60,7 @@ class ProductControllerTest {
         product.setName("Picanha Premium");
         product.setCategory("carnes-aves");
         product.setUnit("kg");
-        product.setPrice(79.9);
+        product.setPrice(new BigDecimal("79.90"));
         product.setTags(List.of("Premium"));
         product.setAvailable(true);
         return product;
@@ -81,20 +82,19 @@ class ProductControllerTest {
     void criarProduto_deveRejeitar_quandoNaoAutenticado() throws Exception {
         ProductRequest request = validRequest();
 
-        // sem token, o Spring Security trata a requisicao como usuario anonimo:
-        // ele "esta autenticado" (como anonimo), so nao tem o papel ADMIN exigido
-        // pela rota - por isso a resposta e 403 (Access Denied), nao 401.
+        // sem token = 401 (nao autenticado); 403 fica para quem esta logado
+        // mas nao tem a permissao - o front distingue os dois casos.
         mockMvc.perform(post("/api/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
 
         verify(productService, never()).create(any());
     }
 
     @Test
-    @WithMockUser(roles = "USER")
-    void criarProduto_deveRejeitar_quandoUsuarioNaoEhAdmin() throws Exception {
+    @WithMockUser(roles = "CLIENTE")
+    void criarProduto_deveRejeitar_quandoUsuarioSemPermissao() throws Exception {
         ProductRequest request = validRequest();
 
         mockMvc.perform(post("/api/products")
@@ -106,8 +106,8 @@ class ProductControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
-    void criarProduto_deveCriar_quandoAdmin() throws Exception {
+    @WithMockUser(authorities = "produtos.editar")
+    void criarProduto_deveCriar_quandoTemPermissaoProdutosEditar() throws Exception {
         ProductRequest request = validRequest();
         when(productService.create(any(ProductRequest.class))).thenReturn(picanha());
 
@@ -121,7 +121,7 @@ class ProductControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(authorities = "produtos.editar")
     void criarProduto_deveRetornar400_quandoCamposObrigatoriosFaltando() throws Exception {
         ProductRequest request = new ProductRequest(); // sem slug/sku/name/category/unit
 
@@ -141,7 +141,7 @@ class ProductControllerTest {
         request.setName("Azeitona Verde com Caroço");
         request.setCategory("mercearia");
         request.setUnit("balde 2kg");
-        request.setPrice(32.5);
+        request.setPrice(new BigDecimal("32.50"));
         request.setAvailable(true);
         return request;
     }

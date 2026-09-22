@@ -6,12 +6,14 @@ import com.distribuidora.backend.model.Role;
 import com.distribuidora.backend.model.User;
 import com.distribuidora.backend.repository.CategoryRepository;
 import com.distribuidora.backend.repository.ProductRepository;
+import com.distribuidora.backend.repository.RoleRepository;
 import com.distribuidora.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 // Cria, na primeira execucao, os usuarios padrao (admin/cliente), as
@@ -21,6 +23,7 @@ import java.util.List;
 public class DataSeeder implements CommandLineRunner {
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
     private final PasswordEncoder passwordEncoder;
@@ -32,6 +35,7 @@ public class DataSeeder implements CommandLineRunner {
 
     public DataSeeder(
             UserRepository userRepository,
+            RoleRepository roleRepository,
             CategoryRepository categoryRepository,
             ProductRepository productRepository,
             PasswordEncoder passwordEncoder,
@@ -40,6 +44,7 @@ public class DataSeeder implements CommandLineRunner {
             @Value("${app.seed.demo-username}") String demoUsername,
             @Value("${app.seed.demo-password}") String demoPassword) {
         this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
         this.categoryRepository = categoryRepository;
         this.productRepository = productRepository;
         this.passwordEncoder = passwordEncoder;
@@ -57,12 +62,21 @@ public class DataSeeder implements CommandLineRunner {
     }
 
     private void seedUsers() {
-        if (!userRepository.existsByUsername(adminUsername)) {
-            userRepository.save(new User(adminUsername, passwordEncoder.encode(adminPassword), null, Role.ADMIN));
+        seedUser(adminUsername, adminPassword, "Administrador", Role.ADMINISTRADOR);
+        seedUser(demoUsername, demoPassword, null, Role.CLIENTE);
+    }
+
+    // Perfis vem da migration V3; aqui so se cria o usuario se ainda nao existir.
+    private void seedUser(String username, String password, String fullName, String roleCode) {
+        if (userRepository.existsByUsername(username)) {
+            return;
         }
-        if (!userRepository.existsByUsername(demoUsername)) {
-            userRepository.save(new User(demoUsername, passwordEncoder.encode(demoPassword), null, Role.USER));
-        }
+        Role role = roleRepository.findByCode(roleCode)
+                .orElseThrow(() -> new IllegalStateException("Perfil nao encontrado: " + roleCode));
+        User user = new User(username, passwordEncoder.encode(password), null);
+        user.setFullName(fullName);
+        user.getRoles().add(role);
+        userRepository.save(user);
     }
 
     private void seedCategories() {
@@ -88,29 +102,29 @@ public class DataSeeder implements CommandLineRunner {
 
         List<Product> products = List.of(
                 product("picanha-premium-98562", "98562", "Picanha Premium", "carnes-aves", "kg",
-                        79.9, List.of("Premium", "Resfriado"),
+                        new BigDecimal("79.9"), List.of("Premium", "Resfriado"),
                         "Picanha selecionada, com capa de gordura uniforme, ideal para churrasco.", "Brasil", true),
                 product("file-de-frango-11023", "11023", "Filé de Peito de Frango", "carnes-aves", "kg",
-                        18.5, List.of("Resfriado"),
+                        new BigDecimal("18.5"), List.of("Resfriado"),
                         "Filé de peito sem osso e sem pele, embalado a vácuo.", "Brasil", true),
                 product("queijo-mussarela-40011", "40011", "Queijo Mussarela em Barra", "laticinios-frios", "kg",
-                        34.2, List.of(),
+                        new BigDecimal("34.2"), List.of(),
                         "Mussarela fatiável, ótimo derretimento, ideal para lanches e pizzas.", "Brasil", true),
                 product("tomate-italiano-50011", "50011", "Tomate Italiano", "hortifruti", "kg",
-                        7.9, List.of(),
+                        new BigDecimal("7.9"), List.of(),
                         "Tomate selecionado, ideal para molhos e saladas.", "Brasil", true),
                 product("arroz-branco-60011", "60011", "Arroz Branco Tipo 1", "mercearia", "saco 5kg",
-                        26.9, List.of(),
+                        new BigDecimal("26.9"), List.of(),
                         "Arroz tipo 1, grãos longos e soltos.", "Brasil", true),
                 product("agua-mineral-70011", "70011", "Água Mineral sem Gás", "bebidas", "fardo 12x500ml",
-                        14.9, List.of(),
+                        new BigDecimal("14.9"), List.of(),
                         "Água mineral natural, fardo fechado.", "Brasil", true));
 
         productRepository.saveAll(products);
     }
 
     private Product product(String slug, String sku, String name, String category, String unit,
-                             Double price, List<String> tags, String description, String origin, boolean available) {
+                             BigDecimal price, List<String> tags, String description, String origin, boolean available) {
         Product product = new Product();
         product.setSlug(slug);
         product.setSku(sku);

@@ -2,6 +2,7 @@ package com.distribuidora.backend.dto;
 
 import com.distribuidora.backend.model.Product;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public class ProductResponse {
@@ -11,7 +12,7 @@ public class ProductResponse {
     private String name;
     private String category;
     private String unit;
-    private Double price;
+    private BigDecimal price;
     private List<String> tags;
     private String image;
     private String description;
@@ -54,7 +55,7 @@ public class ProductResponse {
         return unit;
     }
 
-    public Double getPrice() {
+    public BigDecimal getPrice() {
         return price;
     }
 
