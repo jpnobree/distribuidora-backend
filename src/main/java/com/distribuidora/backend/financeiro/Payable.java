@@ -38,8 +38,11 @@ public class Payable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    // nulo quando o titulo e despesa avulsa, e nao compra de mercadoria
     private Long receiptId;
+
+    @Enumerated(EnumType.STRING)
+    private ExpenseCategory expenseCategory;
 
     @Column(nullable = false)
     private Long supplierId;
@@ -82,6 +85,13 @@ public class Payable {
     private long version;
 
     protected Payable() {
+    }
+
+    // despesa avulsa: sem recebimento, com categoria para o DRE
+    Payable(Long supplierId, ExpenseCategory category, String document, String description, LocalDate issueDate,
+            LocalDate dueDate, BigDecimal amount) {
+        this(null, supplierId, document, description, 1, 1, issueDate, dueDate, amount);
+        this.expenseCategory = category;
     }
 
     Payable(Long receiptId, Long supplierId, String document, String description, int installment,
@@ -144,6 +154,10 @@ public class Payable {
 
     public Long getReceiptId() {
         return receiptId;
+    }
+
+    public ExpenseCategory getExpenseCategory() {
+        return expenseCategory;
     }
 
     public Long getSupplierId() {
