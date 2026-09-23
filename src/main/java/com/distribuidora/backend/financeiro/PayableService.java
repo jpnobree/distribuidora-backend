@@ -24,6 +24,7 @@ import java.util.Map;
 public class PayableService {
 
     public static final String VER = "pagar.ver";
+    public static final String LANCAR = "pagar.lancar";
     public static final String BAIXAR = "pagar.baixar";
     public static final String CANCELAR = "pagar.cancelar";
 
@@ -56,6 +57,28 @@ public class PayableService {
                     days.size(), issueDate, issueDate.plusDays(days.get(i)), values.get(i))));
         }
         return titles;
+    }
+
+    // Despesa avulsa (aluguel, energia, combustivel): vira titulo a pagar
+    // direto, sem passar por pedido de compra.
+    @Transactional
+    public Payable createExpense(FinanceDtos.ExpenseRequest request) {
+        if (request.dueDate().isBefore(request.issueDate())) {
+            throw new BusinessRuleException("O vencimento nao pode ser antes da emissao.");
+        }
+        String document = blank(request.document()) != null ? request.document().trim()
+                : request.category().getLabel();
+        Payable title = payableRepository.save(new Payable(request.supplierId(), request.category(), document,
+                request.description().trim(), request.issueDate(), request.dueDate(), request.amount()));
+
+        Map<String, Object> values = new LinkedHashMap<>();
+        values.put("titulo", title.getDocument());
+        values.put("categoria", request.category().getLabel());
+        values.put("descricao", title.getDescription());
+        values.put("valor", title.getAmount());
+        values.put("vencimento", title.getDueDate());
+        auditService.recordChange(AuditAction.DESPESA_LANCADA, "Payable", title.getId(), null, values, null);
+        return title;
     }
 
     @Transactional
