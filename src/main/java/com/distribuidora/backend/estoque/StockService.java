@@ -97,6 +97,23 @@ public class StockService {
                 request.document(), null, null, null);
     }
 
+    // Entrada vinda do recebimento de compra: o custo nao e digitado a mao, vem
+    // do pedido conferido na doca, entao nao passa pela permissao de alterar
+    // custo — mas continua recalculando o custo medio.
+    @Transactional(propagation = Propagation.MANDATORY)
+    public StockMovement receivePurchase(Long warehouseId, Product product, String lotCode, LocalDate manufacturedOn,
+                                         LocalDate expiresOn, Long supplierId, BigDecimal quantity,
+                                         BigDecimal unitCost, String document, Long receiptId) {
+        ensureNoOpenInventory(warehouseId);
+        if (!product.isActive()) {
+            throw new BusinessRuleException("Produto inativo nao recebe estoque.");
+        }
+        Lot lot = resolveLot(product, lotCode, manufacturedOn, expiresOn, supplierId, document);
+        updateAverageCost(product, quantity, unitCost);
+        return apply(MovementType.ENTRADA_COMPRA, warehouseId, product, lot, quantity, unitCost, null, null,
+                document, "GoodsReceipt", receiptId, null);
+    }
+
     // Custo medio ponderado pelo saldo de todos os depositos.
     private void updateAverageCost(Product product, BigDecimal quantity, BigDecimal unitCost) {
         BigDecimal current = balanceRepository.findByProductId(product.getId()).stream()
@@ -111,35 +128,41 @@ public class StockService {
     }
 
     private Lot resolveEntryLot(Product product, EntryRequest request) {
+        return resolveLot(product, request.lotCode(), request.manufacturedOn(), request.expiresOn(),
+                request.supplierId(), request.document());
+    }
+
+    private Lot resolveLot(Product product, String lotCode, LocalDate manufacturedOn, LocalDate expiresOn,
+                           Long supplierId, String document) {
         if (!product.isLotControl()) {
-            if (request.lotCode() != null && !request.lotCode().isBlank()) {
+            if (lotCode != null && !lotCode.isBlank()) {
                 throw new BusinessRuleException("Este produto nao controla lote. Deixe o lote em branco.");
             }
             return null;
         }
-        if (request.lotCode() == null || request.lotCode().isBlank()) {
+        if (lotCode == null || lotCode.isBlank()) {
             throw new BusinessRuleException("Informe o lote: este produto controla lote.");
         }
-        if (product.isExpiryControl() && request.expiresOn() == null) {
+        if (product.isExpiryControl() && expiresOn == null) {
             throw new BusinessRuleException("Informe a validade do lote.");
         }
-        if (request.expiresOn() != null && request.expiresOn().isBefore(today())) {
+        if (expiresOn != null && expiresOn.isBefore(today())) {
             throw new BusinessRuleException("Lote ja vencido nao pode entrar como disponivel.");
         }
-        if (request.supplierId() != null && !supplierRepository.existsById(request.supplierId())) {
+        if (supplierId != null && !supplierRepository.existsById(supplierId)) {
             throw new BusinessRuleException("Fornecedor inexistente.");
         }
-        String code = request.lotCode().trim().toUpperCase();
+        String code = lotCode.trim().toUpperCase();
         return lotRepository.findByProductIdAndCode(product.getId(), code)
                 .map(existing -> {
-                    if (request.expiresOn() != null && !request.expiresOn().equals(existing.getExpiresOn())) {
+                    if (expiresOn != null && !expiresOn.equals(existing.getExpiresOn())) {
                         throw new BusinessRuleException("O lote " + code + " ja existe com validade "
                                 + existing.getExpiresOn() + ". Confira o lote ou a validade.");
                     }
                     return existing;
                 })
-                .orElseGet(() -> lotRepository.save(new Lot(product.getId(), code, request.supplierId(),
-                        request.manufacturedOn(), request.expiresOn(), request.document())));
+                .orElseGet(() -> lotRepository.save(new Lot(product.getId(), code, supplierId, manufacturedOn,
+                        expiresOn, document)));
     }
 
     // ------------------------------------------------------------------ saidas

@@ -18,7 +18,8 @@ melhor? Se não, não entra no roadmap.
 | 2. Estoque | **Concluída** na branch `erp/fase-2` | V5: depósitos, lotes, saldos por situação (disponível, bloqueado, avariado), movimentos somente-inclusão, perdas com motivo e valor, transferências, FEFO, inventário com depósito congelado e contagem cega. Front: posição com indicadores, validade, movimentações, inventários |
 | 3. Comercial | **Concluída** na branch `erp/fase-3` | V6: tabelas de preço, parâmetro de desconto máximo, pedidos com bloqueios (desconto, abaixo do custo, crédito, cliente bloqueado) e aprovação por alçada, reserva FEFO por lote, leads. Front: pedidos, novo pedido, preços, prospecção com mapa (OpenStreetMap) |
 | 4. Expedição + faturamento + CR | **Concluída** na branch `erp/fase-4` | V7: separação gerada da reserva, peso real na balança, troca de lote, conferência por segunda pessoa (opcional), divergências, faturamento com porta fiscal, baixa física por lote, títulos a receber por parcela, baixas e estornos somente-inclusão. Front: expedição, faturamento e contas a receber |
-| 5. Compras + CP | Próxima | — |
+| 5. Compras + CP | **Concluída** na branch `erp/fase-5` | V8: sugestão de compra calculada (venda real, estoque, o que está a caminho e prazo de entrega), pedido de compra com aprovação por valor, recebimento com lote, validade e custo médio, contas a pagar no mesmo livro das contas a receber. Front: o que comprar, pedidos de compra com recebimento e contas a pagar |
+| 6. Financeiro | Próxima | — |
 
 Decisões tomadas na fase 0 que ajustam o plano abaixo:
 
@@ -39,6 +40,11 @@ Decisões tomadas na fase 0 que ajustam o plano abaixo:
 - **Contas a receber:** os títulos nascem do faturamento pelas parcelas da condição de pagamento (a diferença de arredondamento vai para a última). Baixas e estornos ficam em `financial_transactions`, somente-inclusão como os movimentos de estoque. Juros/multa e desconto entram no recebimento sem alterar o valor do título.
 - **Crédito depois da fase 4:** exposição = pedidos ainda não faturados **+** títulos em aberto. O pedido sai da primeira parcela quando vira nota, então nada conta duas vezes.
 - **Cancelamento de pedido** só vale até a aprovação; na expedição cancela-se a separação, e depois do faturamento cancela-se a nota.
+- **Sugestão de compra é cálculo, não cadastro:** nada fica gravado até virar pedido. Ela cruza o disponível (sem vencidos), o que já foi comprado e ainda não chegou, a venda real do período (itens faturados) e o prazo de entrega do produto ou do fornecedor. Repõe até cobrir o prazo mais `compras.cobertura_dias` (15 de fábrica), respeitando mínimo e máximo do cadastro. Sem venda no período, só repõe quem está abaixo do mínimo.
+- **Pedido de compra** acima de `compras.aprovacao_acima_de` (0 de fábrica, ou seja, todos) precisa de `compras.aprovar`; abaixo, quem lança já aprova e fica registrado. Pedido sem custo não é aceito — viraria título de zero. Pedido com mercadoria já recebida não é cancelado: acerta-se pelo estoque e pelo título.
+- **Recebimento** dá entrada com lote e validade, recalcula o custo médio ponderado e abre os títulos a pagar, tudo na mesma transação. O custo vem do que chegou na nota (não da digitação livre), então dispensa `produtos.custo.alterar` — e a diferença para o combinado no pedido fica registrada. Recebimento parcial é normal: o pedido fica "recebido em parte" até o resto chegar.
+- **Recebimento não se cancela.** A entrada formou o custo médio, e desfazê-la reescreveria um custo que já valeu para outras saídas. A correção é movimento de estoque (perda, saída ou ajuste) mais o cancelamento do título — tudo auditado.
+- **Contas a pagar e a receber dividem o mesmo livro** (`financial_transactions`, uma coluna para cada lado): é dele que o fluxo de caixa da fase 6 vai sair.
 - **Leads do mapa** vêm do OpenStreetMap (Overpass, gratuito, com espelhos em sequência); `external_id` impede importar o mesmo lugar duas vezes.
 - **Compatibilidade com a vitrine:** o login continua devolvendo `role: "ADMIN" | "USER"`; `ADMIN` = usuário com perfil Administrador. Clientes cadastrados pela vitrine recebem o perfil `CLIENTE`, que não entra no ERP.
 
@@ -616,7 +622,7 @@ Cada fase entrega algo **usável na operação**, não telas vazias.
 | **2. Estoque** | Lotes, saldos por status, movimentos, entrada manual inicial (implantação), ajuste, perdas/avarias, inventário, FEFO, consulta de validade | Controle de perda é o maior ganho imediato num distribuidor de perecíveis |
 | **3. Comercial** | Tabelas de preço, políticas de desconto, pedido com reserva FEFO, crédito, aprovações, **leads/prospecção (mapa + raio + cadastro manual)** | Começa a registrar a receita no sistema |
 | **4. Expedição + Faturamento + CR** | Separação com peso real, conferência, faturamento (porta fiscal), títulos a receber, baixas | Fecha o ciclo pedido → dinheiro |
-| **5. Compras + CP** | Sugestão de compra, cotação, pedido de compra, recebimento com lote, custo médio, contas a pagar | Fecha o ciclo compra → estoque → pagamento |
+| **5. Compras + CP** | Sugestão de compra, pedido de compra, recebimento com lote, custo médio, contas a pagar | Fecha o ciclo compra → estoque → pagamento |
 | **6. Financeiro** | Contas bancárias, fluxo de caixa 7–90 dias, centros de custo, plano de contas, DRE gerencial, inadimplência | Depende de CR/CP existirem |
 | **7. Logística + Devoluções** | Veículos, motoristas, rotas, cargas, entregas, ocorrências, devoluções com destino | Depende de faturamento |
 | **8. Dashboards e relatórios** | Dashboards por perfil, central de relatórios, exportação | Depende de dados reais das fases anteriores |
@@ -624,6 +630,11 @@ Cada fase entrega algo **usável na operação**, não telas vazias.
 | **10. IA** | Assistente com ferramentas, resumo diário, explicação de anomalias | Só faz sentido com dados reais acumulados |
 | **Depois** | Portal B2B (evolução da vitrine), app de entregador, WhatsApp, emissão fiscal real, conciliação bancária, multi-filial ativa | Integrações externas sobre a base pronta |
 
+**Cotação entre fornecedores ficou fora da fase 5.** O ciclo que faz dinheiro entrar e sair
+(sugestão → pedido → recebimento → título) foi entregue inteiro; a comparação formal de preços
+entre vários fornecedores só se paga quando houver mais de um fornecedor ativo por produto no
+cadastro, o que hoje não acontece. Enquanto isso, o último custo pago a cada fornecedor já
+aparece na sugestão. Entra na fase 6 ou quando o cadastro justificar.
 ### Critério de pronto de cada módulo
 
 1. Migration Flyway + entidades + regras no serviço com testes unitários das regras.
