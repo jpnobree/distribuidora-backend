@@ -1,10 +1,12 @@
 package com.distribuidora.backend.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public class LoginRequest {
 
     @NotBlank
+    @Size(max = 255)
     private String username;
 
     @NotBlank
