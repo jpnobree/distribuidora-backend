@@ -12,6 +12,7 @@ public final class StockEnums {
     public enum MovementType {
         IMPLANTACAO("Implantação de saldo", Bucket.EXTERNO, Bucket.DISPONIVEL),
         ENTRADA_MANUAL("Entrada manual", Bucket.EXTERNO, Bucket.DISPONIVEL),
+        ENTRADA_COMPRA("Entrada por compra", Bucket.EXTERNO, Bucket.DISPONIVEL),
         SAIDA_MANUAL("Saída manual", Bucket.DISPONIVEL, Bucket.EXTERNO),
         SAIDA_VENDA("Saída por venda", Bucket.DISPONIVEL, Bucket.EXTERNO),
         ESTORNO_VENDA("Estorno de venda", Bucket.EXTERNO, Bucket.DISPONIVEL),

@@ -13,6 +13,8 @@ public class SystemParameter {
     public static final String WEIGHT_TOLERANCE = "expedicao.tolerancia_peso_percent";
     public static final String DIFFERENT_CHECKER = "expedicao.conferente_diferente";
     public static final String INVOICE_SERIES = "faturamento.serie";
+    public static final String PURCHASE_APPROVAL = "compras.aprovacao_acima_de";
+    public static final String PURCHASE_COVERAGE_DAYS = "compras.cobertura_dias";
 
     @Id
     private String key;
