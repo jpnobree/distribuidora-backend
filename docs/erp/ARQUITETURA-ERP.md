@@ -19,7 +19,8 @@ melhor? Se não, não entra no roadmap.
 | 3. Comercial | **Concluída** na branch `erp/fase-3` | V6: tabelas de preço, parâmetro de desconto máximo, pedidos com bloqueios (desconto, abaixo do custo, crédito, cliente bloqueado) e aprovação por alçada, reserva FEFO por lote, leads. Front: pedidos, novo pedido, preços, prospecção com mapa (OpenStreetMap) |
 | 4. Expedição + faturamento + CR | **Concluída** na branch `erp/fase-4` | V7: separação gerada da reserva, peso real na balança, troca de lote, conferência por segunda pessoa (opcional), divergências, faturamento com porta fiscal, baixa física por lote, títulos a receber por parcela, baixas e estornos somente-inclusão. Front: expedição, faturamento e contas a receber |
 | 5. Compras + CP | **Concluída** na branch `erp/fase-5` | V8: sugestão de compra calculada (venda real, estoque, o que está a caminho e prazo de entrega), pedido de compra com aprovação por valor, recebimento com lote, validade e custo médio, contas a pagar no mesmo livro das contas a receber. Front: o que comprar, pedidos de compra com recebimento e contas a pagar |
-| 6. Financeiro | Próxima | — |
+| 6. Financeiro | **Concluída** na branch `erp/fase-6` | V9: despesa avulsa com categoria vira título a pagar; fluxo de caixa (realizado + projetado por faixa até 90 dias) e DRE gerencial, ambos calculados na hora. Front: caixa e resultado, lançamento de despesa |
+| 7. Logística + devoluções | Próxima | — |
 
 Decisões tomadas na fase 0 que ajustam o plano abaixo:
 
@@ -45,6 +46,12 @@ Decisões tomadas na fase 0 que ajustam o plano abaixo:
 - **Recebimento** dá entrada com lote e validade, recalcula o custo médio ponderado e abre os títulos a pagar, tudo na mesma transação. O custo vem do que chegou na nota (não da digitação livre), então dispensa `produtos.custo.alterar` — e a diferença para o combinado no pedido fica registrada. Recebimento parcial é normal: o pedido fica "recebido em parte" até o resto chegar.
 - **Recebimento não se cancela.** A entrada formou o custo médio, e desfazê-la reescreveria um custo que já valeu para outras saídas. A correção é movimento de estoque (perda, saída ou ajuste) mais o cancelamento do título — tudo auditado.
 - **Contas a pagar e a receber dividem o mesmo livro** (`financial_transactions`, uma coluna para cada lado): é dele que o fluxo de caixa da fase 6 vai sair.
+- **Fluxo de caixa e DRE são consulta, não tabela.** Saem de `financial_transactions`, dos títulos em aberto e das notas emitidas. Sem tabela de projeção, sem fechamento mensal gravado: número gravado envelhece sozinho e passa a mentir.
+- **Sem saldo bancário.** A projeção responde "quanto entra e quanto sai", não "quanto tenho". Saldo digitado à mão desanda em uma semana e vira número em que o dono confia errado; ele entra junto com conciliação bancária de verdade.
+- **Categoria de despesa é lista fixa no código** (`ExpenseCategory`), não cadastro. Agrupar DRE por texto digitado quebra com "Combustivel" x "Combustível", e uma tabela com CRUD e tela custaria mais do que o problema pede. Vira cadastro quando houver categoria própria ou centro de custo.
+- **Despesa usa o mesmo cadastro de fornecedor** da compra (a companhia de energia vira fornecedor): nenhum cadastro paralelo de favorecido.
+- **Compra de mercadoria não é despesa no DRE:** ela vira CMV quando a venda acontece. Só entram no resultado os títulos com categoria.
+- **Centro de custo e plano de contas ficaram fora:** hoje toda saída é compra de mercadoria ou despesa com categoria, e as duas já se classificam. Entram quando houver mais de uma frente de custo para comparar.
 - **Leads do mapa** vêm do OpenStreetMap (Overpass, gratuito, com espelhos em sequência); `external_id` impede importar o mesmo lugar duas vezes.
 - **Compatibilidade com a vitrine:** o login continua devolvendo `role: "ADMIN" | "USER"`; `ADMIN` = usuário com perfil Administrador. Clientes cadastrados pela vitrine recebem o perfil `CLIENTE`, que não entra no ERP.
 
