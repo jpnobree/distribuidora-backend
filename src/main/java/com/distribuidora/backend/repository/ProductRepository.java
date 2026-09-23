@@ -10,4 +10,8 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     Optional<Product> findBySlug(String slug);
 
     boolean existsBySlug(String slug);
+
+    boolean existsBySku(String sku);
+
+    boolean existsBySkuAndIdNot(String sku, Long id);
 }

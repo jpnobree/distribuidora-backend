@@ -33,12 +33,13 @@ public class JwtService {
         this.expirationMillis = expirationMinutes * 60 * 1000;
     }
 
-    public String generateToken(UserDetails userDetails, String role) {
+    // O token carrega so a identidade. Perfis e permissoes sao lidos do banco
+    // a cada requisicao (ver CustomUserDetailsService).
+    public String generateToken(UserDetails userDetails) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMillis);
         return Jwts.builder()
                 .subject(userDetails.getUsername())
-                .claim("role", role)
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(signingKey)

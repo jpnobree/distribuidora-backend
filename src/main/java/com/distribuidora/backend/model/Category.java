@@ -19,6 +19,18 @@ public class Category {
     @Column
     private String icon;
 
+    // Preenchido = subcategoria. A vitrine lista so as categorias principais.
+    @Column(name = "parent_id")
+    private Long parentId;
+
+    public Long getParentId() {
+        return parentId;
+    }
+
+    public void setParentId(Long parentId) {
+        this.parentId = parentId;
+    }
+
     public Category() {
     }
 
