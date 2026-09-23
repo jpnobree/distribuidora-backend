@@ -52,4 +52,22 @@ public final class FinanceDtos {
                                     BigDecimal dueIn30Days, BigDecimal receivedThisMonth, long overdueCount,
                                     long openCount) {
     }
+
+    // ------------------------------------------------------------- a pagar
+
+    public record PayableSummary(
+            Long id, String document, String description, Long supplierId, String supplierName, Long receiptId,
+            Long purchaseOrderId, int installment, int installmentsTotal, LocalDate issueDate, LocalDate dueDate,
+            BigDecimal amount, BigDecimal paidAmount, BigDecimal openAmount, String status, String statusLabel,
+            boolean overdue, long daysLate) {
+    }
+
+    public record PayableView(PayableSummary title, String supplierDocument, List<TransactionView> transactions,
+                              boolean canPay, boolean canCancel, long version) {
+    }
+
+    public record PayablesTotals(BigDecimal open, BigDecimal overdue, BigDecimal dueToday, BigDecimal dueIn7Days,
+                                 BigDecimal dueIn30Days, BigDecimal paidThisMonth, long overdueCount,
+                                 long openCount) {
+    }
 }

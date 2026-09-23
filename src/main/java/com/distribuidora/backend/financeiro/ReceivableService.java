@@ -113,7 +113,7 @@ public class ReceivableService {
             throw new BusinessRuleException("A data do recebimento e anterior a emissao do titulo.");
         }
         title.receive(request.amount());
-        FinancialTransaction transaction = transactionRepository.save(new FinancialTransaction(title.getId(),
+        transactionRepository.save(FinancialTransaction.forReceivable(title.getId(),
                 FinancialTransaction.Type.BAIXA, request.amount(), interest, discount, request.paidOn(),
                 request.method(), blank(request.notes()), currentUser.id(), currentUser.username(), null));
 
@@ -142,9 +142,10 @@ public class ReceivableService {
         }
         Receivable title = visible(original.getReceivableId());
         title.reverse(original.getAmount());
-        transactionRepository.save(new FinancialTransaction(title.getId(), FinancialTransaction.Type.ESTORNO,
-                original.getAmount(), original.getInterest(), original.getDiscount(), today(), original.getMethod(),
-                reason.trim(), currentUser.id(), currentUser.username(), original.getId()));
+        transactionRepository.save(FinancialTransaction.forReceivable(title.getId(),
+                FinancialTransaction.Type.ESTORNO, original.getAmount(), original.getInterest(),
+                original.getDiscount(), today(), original.getMethod(), reason.trim(), currentUser.id(),
+                currentUser.username(), original.getId()));
 
         auditService.recordChange(AuditAction.TITULO_ESTORNADO, "Receivable", title.getId(), null,
                 Map.of("titulo", title.getDocument(), "valor", original.getAmount()), reason.trim());

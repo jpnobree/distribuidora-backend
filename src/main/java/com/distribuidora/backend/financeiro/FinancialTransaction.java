@@ -6,8 +6,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 
-// Recebimento ou estorno. Somente inclusao (trigger na V7): baixa errada se
-// corrige com um estorno, nunca apagando a linha.
+// Baixa ou estorno de um titulo a receber OU a pagar: os dois moram no mesmo
+// livro, que e o que sustenta o fluxo de caixa. Somente inclusao (trigger na
+// V7): baixa errada se corrige com um estorno, nunca apagando a linha.
 @Entity
 @Table(name = "financial_transactions")
 public class FinancialTransaction {
@@ -38,8 +39,11 @@ public class FinancialTransaction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, updatable = false)
+    @Column(updatable = false)
     private Long receivableId;
+
+    @Column(updatable = false)
+    private Long payableId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, updatable = false)
@@ -79,9 +83,25 @@ public class FinancialTransaction {
     protected FinancialTransaction() {
     }
 
-    FinancialTransaction(Long receivableId, Type type, BigDecimal amount, BigDecimal interest, BigDecimal discount,
-                         LocalDate paidOn, Method method, String notes, Long userId, String username, Long reversalOf) {
+    static FinancialTransaction forReceivable(Long receivableId, Type type, BigDecimal amount, BigDecimal interest,
+                                              BigDecimal discount, LocalDate paidOn, Method method, String notes,
+                                              Long userId, String username, Long reversalOf) {
+        return new FinancialTransaction(receivableId, null, type, amount, interest, discount, paidOn, method, notes,
+                userId, username, reversalOf);
+    }
+
+    static FinancialTransaction forPayable(Long payableId, Type type, BigDecimal amount, BigDecimal interest,
+                                           BigDecimal discount, LocalDate paidOn, Method method, String notes,
+                                           Long userId, String username, Long reversalOf) {
+        return new FinancialTransaction(null, payableId, type, amount, interest, discount, paidOn, method, notes,
+                userId, username, reversalOf);
+    }
+
+    private FinancialTransaction(Long receivableId, Long payableId, Type type, BigDecimal amount, BigDecimal interest,
+                                 BigDecimal discount, LocalDate paidOn, Method method, String notes, Long userId,
+                                 String username, Long reversalOf) {
         this.receivableId = receivableId;
+        this.payableId = payableId;
         this.type = type;
         this.amount = amount;
         this.interest = interest;
@@ -105,6 +125,10 @@ public class FinancialTransaction {
 
     public Long getReceivableId() {
         return receivableId;
+    }
+
+    public Long getPayableId() {
+        return payableId;
     }
 
     public Type getType() {

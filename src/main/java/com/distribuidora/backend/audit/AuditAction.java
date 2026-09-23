@@ -34,6 +34,13 @@ public enum AuditAction {
     TITULO_BAIXADO("Título recebido"),
     TITULO_ESTORNADO("Baixa estornada"),
     TITULO_CANCELADO("Título cancelado"),
+    COMPRA_LANCADA("Pedido de compra lançado"),
+    COMPRA_APROVADA("Pedido de compra aprovado"),
+    COMPRA_CANCELADA("Pedido de compra cancelado"),
+    COMPRA_RECEBIDA("Mercadoria recebida"),
+    TITULO_PAGO("Título pago"),
+    PAGAMENTO_ESTORNADO("Pagamento estornado"),
+    TITULO_PAGAR_CANCELADO("Título a pagar cancelado"),
     TABELA_PRECO_ALTERADA("Tabela de preço alterada"),
     PARAMETRO_ALTERADO("Parâmetro alterado"),
     LEAD_CONVERTIDO("Lead convertido em cliente");

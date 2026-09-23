@@ -11,5 +11,9 @@ public interface FinancialTransactionRepository extends JpaRepository<FinancialT
 
     List<FinancialTransaction> findByReceivableIdInOrderByIdAsc(Collection<Long> receivableIds);
 
+    List<FinancialTransaction> findByPayableIdOrderByIdAsc(Long payableId);
+
+    List<FinancialTransaction> findByPayableIdInOrderByIdAsc(Collection<Long> payableIds);
+
     boolean existsByReversalOf(Long transactionId);
 }
