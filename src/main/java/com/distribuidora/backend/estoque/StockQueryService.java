@@ -219,7 +219,9 @@ public class StockQueryService {
         Map<String, Object> position = jdbc.queryForMap(POSITION_CTE + """
                 SELECT COALESCE(SUM(physical * COALESCE(average_cost, 0)), 0) AS stock_value,
                        COUNT(*) FILTER (WHERE situation = 'ABAIXO_MINIMO') AS below_min,
-                       COUNT(*) FILTER (WHERE situation = 'ZERADO' AND min_stock IS NOT NULL) AS out_of_stock
+                       COUNT(*) FILTER (WHERE situation = 'ZERADO' AND min_stock IS NOT NULL) AS out_of_stock,
+                       COALESCE(SUM(physical) FILTER (WHERE base_unit = 'KG'), 0) AS total_kg,
+                       COALESCE(SUM(available) FILTER (WHERE base_unit = 'KG'), 0) AS available_kg
                 FROM classified
                 """, none);
 
@@ -254,7 +256,9 @@ public class StockQueryService {
                 ((Number) lots.get("expired")).longValue(),
                 seesCost ? money(lots.get("expired_value")) : null,
                 seesCost ? money(lots.get("losses")) : null,
-                windowDays);
+                windowDays,
+                (BigDecimal) position.get("total_kg"),
+                (BigDecimal) position.get("available_kg"));
     }
 
     @Transactional(readOnly = true)
