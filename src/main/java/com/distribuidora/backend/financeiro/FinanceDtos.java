@@ -57,9 +57,9 @@ public final class FinanceDtos {
 
     public record PayableSummary(
             Long id, String document, String description, Long supplierId, String supplierName, Long receiptId,
-            Long purchaseOrderId, int installment, int installmentsTotal, LocalDate issueDate, LocalDate dueDate,
-            BigDecimal amount, BigDecimal paidAmount, BigDecimal openAmount, String status, String statusLabel,
-            boolean overdue, long daysLate) {
+            Long purchaseOrderId, String expenseCategory, String expenseCategoryLabel, int installment,
+            int installmentsTotal, LocalDate issueDate, LocalDate dueDate, BigDecimal amount, BigDecimal paidAmount,
+            BigDecimal openAmount, String status, String statusLabel, boolean overdue, long daysLate) {
     }
 
     public record PayableView(PayableSummary title, String supplierDocument, List<TransactionView> transactions,
@@ -69,5 +69,35 @@ public final class FinanceDtos {
     public record PayablesTotals(BigDecimal open, BigDecimal overdue, BigDecimal dueToday, BigDecimal dueIn7Days,
                                  BigDecimal dueIn30Days, BigDecimal paidThisMonth, long overdueCount,
                                  long openCount) {
+    }
+
+    public record ExpenseRequest(
+            @NotNull Long supplierId,
+            @NotNull ExpenseCategory category,
+            @Size(max = 30) String document,
+            @NotBlank(message = "Descreva a despesa") @Size(max = 255) String description,
+            @NotNull LocalDate issueDate,
+            @NotNull LocalDate dueDate,
+            @NotNull @DecimalMin("0.01") @Digits(integer = 12, fraction = 2) BigDecimal amount) {
+    }
+
+    // ------------------------------------------------- fluxo de caixa e DRE
+
+    public record CashFlowBucket(String label, LocalDate from, LocalDate to, BigDecimal incoming,
+                                 BigDecimal outgoing, BigDecimal net, BigDecimal accumulated) {
+    }
+
+    public record CashFlow(LocalDate from, LocalDate to, BigDecimal realizedIn, BigDecimal realizedOut,
+                           BigDecimal realizedNet, BigDecimal overdueIn, BigDecimal overdueOut,
+                           List<CashFlowBucket> buckets) {
+    }
+
+    public record DreLine(String key, String label, BigDecimal value) {
+    }
+
+    public record Dre(LocalDate from, LocalDate to, BigDecimal grossRevenue, BigDecimal discounts,
+                      BigDecimal netRevenue, BigDecimal cmv, BigDecimal grossProfit, BigDecimal grossMarginPercent,
+                      BigDecimal expenses, List<DreLine> expenseLines, BigDecimal operatingResult,
+                      long invoiceCount, BigDecimal averageTicket) {
     }
 }

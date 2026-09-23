@@ -38,6 +38,7 @@ public enum AuditAction {
     COMPRA_APROVADA("Pedido de compra aprovado"),
     COMPRA_CANCELADA("Pedido de compra cancelado"),
     COMPRA_RECEBIDA("Mercadoria recebida"),
+    DESPESA_LANCADA("Despesa lançada"),
     TITULO_PAGO("Título pago"),
     PAGAMENTO_ESTORNADO("Pagamento estornado"),
     TITULO_PAGAR_CANCELADO("Título a pagar cancelado"),

@@ -95,7 +95,8 @@ public class PayableQueryService {
     @Transactional(readOnly = true)
     public PayableView toView(Payable title) {
         Supplier supplier = supplierRepository.findById(title.getSupplierId()).orElse(null);
-        GoodsReceipt receipt = receiptRepository.findById(title.getReceiptId()).orElse(null);
+        GoodsReceipt receipt = title.getReceiptId() == null ? null
+                : receiptRepository.findById(title.getReceiptId()).orElse(null);
         List<FinancialTransaction> transactions = transactionRepository.findByPayableIdOrderByIdAsc(title.getId());
         Set<Long> reversed = transactions.stream().map(FinancialTransaction::getReversalOf)
                 .filter(Objects::nonNull).collect(Collectors.toSet());
@@ -157,7 +158,10 @@ public class PayableQueryService {
         boolean overdue = title.isOverdue(today);
         return new PayableSummary(title.getId(), title.getDocument(), title.getDescription(), title.getSupplierId(),
                 supplier == null ? null : supplier.displayName(), title.getReceiptId(),
-                receipt == null ? null : receipt.getPurchaseOrderId(), title.getInstallment(),
+                receipt == null ? null : receipt.getPurchaseOrderId(),
+                title.getExpenseCategory() == null ? null : title.getExpenseCategory().name(),
+                title.getExpenseCategory() == null ? null : title.getExpenseCategory().getLabel(),
+                title.getInstallment(),
                 title.getInstallmentsTotal(), title.getIssueDate(), title.getDueDate(), title.getAmount(),
                 title.getPaidAmount(), title.openAmount(), title.getStatus().name(), title.getStatus().getLabel(),
                 overdue, overdue ? ChronoUnit.DAYS.between(title.getDueDate(), today) : 0);
@@ -169,7 +173,8 @@ public class PayableQueryService {
     }
 
     private Map<Long, GoodsReceipt> receipts(Collection<Payable> titles) {
-        return receiptRepository.findAllById(titles.stream().map(Payable::getReceiptId).distinct().toList())
+        return receiptRepository.findAllById(titles.stream().map(Payable::getReceiptId)
+                        .filter(Objects::nonNull).distinct().toList())
                 .stream().collect(Collectors.toMap(GoodsReceipt::getId, Function.identity()));
     }
 
