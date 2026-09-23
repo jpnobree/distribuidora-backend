@@ -45,7 +45,7 @@ public class ProductController {
         return ProductResponse.from(productService.findBySlug(slug));
     }
 
-    // A partir daqui, somente ADMIN (ver SecurityConfig).
+    // A partir daqui, exige a permissao "produtos.editar" (ver SecurityConfig).
     @Operation(summary = "Cria um produto (ADMIN)")
     @PostMapping
     public ResponseEntity<ProductResponse> create(@Valid @RequestBody ProductRequest request) {
@@ -62,7 +62,7 @@ public class ProductController {
     // Atalho para o admin alterar so o preco, sem reenviar o produto inteiro.
     @Operation(summary = "Atalho: altera so o preco (ADMIN)")
     @PatchMapping("/{slug}/price")
-    public ProductResponse updatePrice(@PathVariable String slug, @RequestBody PriceUpdateRequest request) {
+    public ProductResponse updatePrice(@PathVariable String slug, @Valid @RequestBody PriceUpdateRequest request) {
         return ProductResponse.from(productService.updatePrice(slug, request));
     }
 
