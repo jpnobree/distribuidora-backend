@@ -126,6 +126,29 @@ public class StockQueryService {
         return new PageImpl<>(rows, pageable, total == null ? 0 : total);
     }
 
+    // Disponível por produto, com a mesma conta da posição (sem reservado,
+    // bloqueado, avariado nem vencido). É o que o catálogo público mostra.
+    @Transactional(readOnly = true)
+    public Map<Long, BigDecimal> availableFor(java.util.Collection<Long> productIds) {
+        if (productIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, BigDecimal> result = new java.util.HashMap<>();
+        jdbc.query("""
+                SELECT b.product_id,
+                       SUM(CASE WHEN l.expires_on < :today THEN 0
+                                ELSE b.qty_physical - b.qty_reserved - b.qty_blocked - b.qty_damaged END) AS available
+                FROM stock_balances b
+                LEFT JOIN lots l ON l.id = b.lot_id
+                WHERE b.product_id IN (:ids)
+                GROUP BY b.product_id
+                """, new MapSqlParameterSource("ids", productIds)
+                        .addValue("today", Date.valueOf(LocalDate.now(clock))),
+                (org.springframework.jdbc.core.RowCallbackHandler) rs ->
+                        result.put(rs.getLong("product_id"), rs.getBigDecimal("available")));
+        return result;
+    }
+
     @Transactional(readOnly = true)
     public List<BalanceDetail> productBalances(Long productId) {
         LocalDate today = LocalDate.now(clock);

@@ -2,6 +2,7 @@ package com.distribuidora.backend.controller;
 
 import com.distribuidora.backend.config.SecurityConfig;
 import com.distribuidora.backend.dto.ProductRequest;
+import com.distribuidora.backend.estoque.StockQueryService;
 import com.distribuidora.backend.model.Product;
 import com.distribuidora.backend.security.JwtService;
 import com.distribuidora.backend.service.ProductService;
@@ -19,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -46,6 +48,9 @@ class ProductControllerTest {
     @MockBean
     private ProductService productService;
 
+    @MockBean
+    private StockQueryService stockQueryService;
+
     // dependencias do JwtAuthFilter/SecurityConfig - mockadas so para o
     // contexto de seguranca conseguir montar, sem precisar de JWT real
     @MockBean
@@ -55,6 +60,7 @@ class ProductControllerTest {
 
     private Product picanha() {
         Product product = new Product();
+        product.setId(24L);
         product.setSlug("picanha-premium-98562");
         product.setSku("98562");
         product.setName("Picanha Premium");
@@ -70,11 +76,14 @@ class ProductControllerTest {
     void listarProdutos_devePermitirAcessoPublico_semAutenticacao() throws Exception {
         when(productService.findAll(isNull(), isNull(), any()))
                 .thenReturn(new PageImpl<>(List.of(picanha())));
+        when(stockQueryService.availableFor(any())).thenReturn(Map.of(24L, new BigDecimal("373.198")));
 
         mockMvc.perform(get("/api/products"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].id").value("picanha-premium-98562"))
                 .andExpect(jsonPath("$.content[0].name").value("Picanha Premium"))
+                // o catalogo publico mostra o disponivel em estoque
+                .andExpect(jsonPath("$.content[0].stock").value(373.198))
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
 

@@ -18,6 +18,14 @@ public class ProductResponse {
     private String description;
     private String origin;
     private boolean available;
+    // disponivel na unidade base (kg, na maioria); so vem no catalogo publico
+    private BigDecimal stock;
+
+    public static ProductResponse from(Product product, BigDecimal stock) {
+        ProductResponse response = from(product);
+        response.stock = stock;
+        return response;
+    }
 
     public static ProductResponse from(Product product) {
         ProductResponse response = new ProductResponse();
@@ -77,5 +85,9 @@ public class ProductResponse {
 
     public boolean isAvailable() {
         return available;
+    }
+
+    public BigDecimal getStock() {
+        return stock;
     }
 }

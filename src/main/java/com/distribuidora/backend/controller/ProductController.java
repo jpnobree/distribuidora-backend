@@ -4,6 +4,7 @@ import com.distribuidora.backend.dto.PageResponse;
 import com.distribuidora.backend.dto.PriceUpdateRequest;
 import com.distribuidora.backend.dto.ProductRequest;
 import com.distribuidora.backend.dto.ProductResponse;
+import com.distribuidora.backend.estoque.StockQueryService;
 import com.distribuidora.backend.model.Product;
 import com.distribuidora.backend.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,15 +16,21 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+
 @Tag(name = "Produtos", description = "Catalogo publico e gestao de produtos (ADMIN)")
 @RestController
 @RequestMapping("/api/products")
 public class ProductController {
 
     private final ProductService productService;
+    private final StockQueryService stockQueryService;
 
-    public ProductController(ProductService productService) {
+    public ProductController(ProductService productService, StockQueryService stockQueryService) {
         this.productService = productService;
+        this.stockQueryService = stockQueryService;
     }
 
     // Publico: catalogo para qualquer visitante. Paginado (padrao: 100 itens
@@ -36,13 +43,16 @@ public class ProductController {
             @RequestParam(required = false) String search,
             @PageableDefault(size = 100) Pageable pageable) {
         Page<Product> page = productService.findAll(category, search, pageable);
-        return PageResponse.from(page.map(ProductResponse::from));
+        Map<Long, BigDecimal> stock = stockQueryService.availableFor(page.map(Product::getId).getContent());
+        return PageResponse.from(page.map(p -> ProductResponse.from(p, stock.getOrDefault(p.getId(), BigDecimal.ZERO))));
     }
 
     @Operation(summary = "Detalhe de um produto (publico)")
     @GetMapping("/{slug}")
     public ProductResponse findOne(@PathVariable String slug) {
-        return ProductResponse.from(productService.findBySlug(slug));
+        Product product = productService.findBySlug(slug);
+        return ProductResponse.from(product,
+                stockQueryService.availableFor(List.of(product.getId())).getOrDefault(product.getId(), BigDecimal.ZERO));
     }
 
     // A partir daqui, exige a permissao "produtos.editar" (ver SecurityConfig).
