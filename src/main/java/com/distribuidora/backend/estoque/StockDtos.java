@@ -112,7 +112,9 @@ public final class StockDtos {
     public record Summary(
             BigDecimal stockValue, long productsBelowMin, long productsOutOfStock, long lotsExpiringSoon,
             BigDecimal expiringSoonValue, long lotsExpiredWithStock, BigDecimal expiredValue,
-            BigDecimal lossesThisMonthValue, int expiringWindowDays) {
+            BigDecimal lossesThisMonthValue, int expiringWindowDays,
+            // so produto vendido em kg: somar kg com unidade nao da numero nenhum
+            BigDecimal totalKg, BigDecimal availableKg) {
     }
 
     public record FefoAllocation(Long lotId, String lotCode, LocalDate expiresOn, Long warehouseId,
