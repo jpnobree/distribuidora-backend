@@ -2,6 +2,10 @@ package com.distribuidora.backend.controller;
 
 import com.distribuidora.backend.config.SecurityConfig;
 import com.distribuidora.backend.dto.ProductRequest;
+<<<<<<< HEAD
+=======
+import com.distribuidora.backend.estoque.StockQueryService;
+>>>>>>> 154ff9f1e6bd1f6941af621177fb23cd7f89d7a1
 import com.distribuidora.backend.model.Product;
 import com.distribuidora.backend.security.JwtService;
 import com.distribuidora.backend.service.ProductService;
@@ -19,6 +23,10 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.util.List;
+<<<<<<< HEAD
+=======
+import java.util.Map;
+>>>>>>> 154ff9f1e6bd1f6941af621177fb23cd7f89d7a1
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -46,6 +54,12 @@ class ProductControllerTest {
     @MockBean
     private ProductService productService;
 
+<<<<<<< HEAD
+=======
+    @MockBean
+    private StockQueryService stockQueryService;
+
+>>>>>>> 154ff9f1e6bd1f6941af621177fb23cd7f89d7a1
     // dependencias do JwtAuthFilter/SecurityConfig - mockadas so para o
     // contexto de seguranca conseguir montar, sem precisar de JWT real
     @MockBean
@@ -55,6 +69,10 @@ class ProductControllerTest {
 
     private Product picanha() {
         Product product = new Product();
+<<<<<<< HEAD
+=======
+        product.setId(24L);
+>>>>>>> 154ff9f1e6bd1f6941af621177fb23cd7f89d7a1
         product.setSlug("picanha-premium-98562");
         product.setSku("98562");
         product.setName("Picanha Premium");
@@ -70,11 +88,20 @@ class ProductControllerTest {
     void listarProdutos_devePermitirAcessoPublico_semAutenticacao() throws Exception {
         when(productService.findAll(isNull(), isNull(), any()))
                 .thenReturn(new PageImpl<>(List.of(picanha())));
+<<<<<<< HEAD
+=======
+        when(stockQueryService.availableFor(any())).thenReturn(Map.of(24L, new BigDecimal("373.198")));
+>>>>>>> 154ff9f1e6bd1f6941af621177fb23cd7f89d7a1
 
         mockMvc.perform(get("/api/products"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].id").value("picanha-premium-98562"))
                 .andExpect(jsonPath("$.content[0].name").value("Picanha Premium"))
+<<<<<<< HEAD
+=======
+                // o catalogo publico mostra o disponivel em estoque
+                .andExpect(jsonPath("$.content[0].stock").value(373.198))
+>>>>>>> 154ff9f1e6bd1f6941af621177fb23cd7f89d7a1
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
 
