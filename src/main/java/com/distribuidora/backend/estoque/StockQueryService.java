@@ -126,32 +126,6 @@ public class StockQueryService {
         return new PageImpl<>(rows, pageable, total == null ? 0 : total);
     }
 
-<<<<<<< HEAD
-=======
-    // Disponível por produto, com a mesma conta da posição (sem reservado,
-    // bloqueado, avariado nem vencido). É o que o catálogo público mostra.
-    @Transactional(readOnly = true)
-    public Map<Long, BigDecimal> availableFor(java.util.Collection<Long> productIds) {
-        if (productIds.isEmpty()) {
-            return Map.of();
-        }
-        Map<Long, BigDecimal> result = new java.util.HashMap<>();
-        jdbc.query("""
-                SELECT b.product_id,
-                       SUM(CASE WHEN l.expires_on < :today THEN 0
-                                ELSE b.qty_physical - b.qty_reserved - b.qty_blocked - b.qty_damaged END) AS available
-                FROM stock_balances b
-                LEFT JOIN lots l ON l.id = b.lot_id
-                WHERE b.product_id IN (:ids)
-                GROUP BY b.product_id
-                """, new MapSqlParameterSource("ids", productIds)
-                        .addValue("today", Date.valueOf(LocalDate.now(clock))),
-                (org.springframework.jdbc.core.RowCallbackHandler) rs ->
-                        result.put(rs.getLong("product_id"), rs.getBigDecimal("available")));
-        return result;
-    }
-
->>>>>>> 154ff9f1e6bd1f6941af621177fb23cd7f89d7a1
     @Transactional(readOnly = true)
     public List<BalanceDetail> productBalances(Long productId) {
         LocalDate today = LocalDate.now(clock);
@@ -222,13 +196,7 @@ public class StockQueryService {
         Map<String, Object> position = jdbc.queryForMap(POSITION_CTE + """
                 SELECT COALESCE(SUM(physical * COALESCE(average_cost, 0)), 0) AS stock_value,
                        COUNT(*) FILTER (WHERE situation = 'ABAIXO_MINIMO') AS below_min,
-<<<<<<< HEAD
                        COUNT(*) FILTER (WHERE situation = 'ZERADO' AND min_stock IS NOT NULL) AS out_of_stock
-=======
-                       COUNT(*) FILTER (WHERE situation = 'ZERADO' AND min_stock IS NOT NULL) AS out_of_stock,
-                       COALESCE(SUM(physical) FILTER (WHERE base_unit = 'KG'), 0) AS total_kg,
-                       COALESCE(SUM(available) FILTER (WHERE base_unit = 'KG'), 0) AS available_kg
->>>>>>> 154ff9f1e6bd1f6941af621177fb23cd7f89d7a1
                 FROM classified
                 """, none);
 
@@ -263,13 +231,7 @@ public class StockQueryService {
                 ((Number) lots.get("expired")).longValue(),
                 seesCost ? money(lots.get("expired_value")) : null,
                 seesCost ? money(lots.get("losses")) : null,
-<<<<<<< HEAD
                 windowDays);
-=======
-                windowDays,
-                (BigDecimal) position.get("total_kg"),
-                (BigDecimal) position.get("available_kg"));
->>>>>>> 154ff9f1e6bd1f6941af621177fb23cd7f89d7a1
     }
 
     @Transactional(readOnly = true)
